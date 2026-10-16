@@ -11,6 +11,30 @@ from .loc import effective_loc
 SEA_LEVEL_PO2_PSIA: Final[float] = 14.7 * 0.21  # 3.087 psia (dossier §3.1)
 PO2_CREW_SAFE_BAND_PSIA: Final[tuple[float, float]] = (2.4, 3.4)  # dossier §3.4
 
+# Material classes documented in dossier §2.1. The engine only accepts these;
+# the API enforces the set so an unknown class can never silently reach the
+# similarity/coverage math as a free-form string.
+MATERIAL_CLASSES: Final[tuple[str, ...]] = (
+    "polymer", "textile", "insulation", "composite",
+)
+
+# Conservative thickness factor per material class (dossier §4.5): thin
+# samples burn more readily than thick ones (BASS-II tested fuel thickness and
+# geometry as explicit variables). Applied to F_s and, through it, to F_p and
+# F_b. v1 uses one representative factor per class rather than a measured
+# distribution -- a stated fit choice, not a measurement (dossier §4.7 #5).
+THICKNESS_FACTOR_BY_MATERIAL: Final[dict[str, float]] = {
+    "polymer": 1.00,     # PMMA-class slab: reference section
+    "textile": 0.85,     # thin woven fabric: less thermal mass per unit area
+    "insulation": 0.70,  # low-density foam: thinnest effective section
+    "composite": 1.15,   # laminate: highest thermal mass of the set
+}
+
+
+def thickness_factor_for(material_class: str) -> float:
+    """Representative thickness factor for a material class (dossier §4.5)."""
+    return THICKNESS_FACTOR_BY_MATERIAL.get(material_class, 1.0)
+
 
 def po2_psia(pressure_psia: float, o2_pct: float) -> float:
     """Oxygen partial pressure in psia (definitional; dossier §3.1)."""
@@ -37,13 +61,18 @@ def hazard_vector(
     flow_ms: float = 0.2,
     temperature_c: float = 22.0,
     material_class: str = "polymer",
-    thickness_factor: float = 1.0,
+    thickness_factor: float | None = None,
 ) -> dict:
     """Compute the 5-component Fire Hazard Vector + crew side (dossier §4.6).
 
     Returns dict with ignition, spread, persistence, heat_release,
     extinction_margin (0-100) and crew block (pO2, normoxia %, safe flag).
+
+    thickness_factor defaults to the representative factor for the material
+    class (dossier §4.5); pass an explicit value to override it.
     """
+    if thickness_factor is None:
+        thickness_factor = thickness_factor_for(material_class)
     p_kpa = pressure_psia * 6.89476
     loc_eff = effective_loc(p_kpa, gravity, flow_ms)
     margin_pct = o2_pct - loc_eff  # >0 above boundary (more flammable)

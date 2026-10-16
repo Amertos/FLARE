@@ -8,6 +8,8 @@ export default function AIScientist({ query }: { query: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // The full app state, temperature included, so an answer cannot describe a
+  // different atmosphere than the sliders show.
   const params = new URLSearchParams(query);
   const body = {
     question,
@@ -15,6 +17,7 @@ export default function AIScientist({ query }: { query: string }) {
     o2_pct: +params.get("o2_pct")!,
     gravity: params.get("gravity")!,
     flow_ms: +params.get("flow_ms")!,
+    temperature_c: +params.get("temperature_c")!,
     material_class: params.get("material_class")!,
   };
 
@@ -52,6 +55,11 @@ export default function AIScientist({ query }: { query: string }) {
             Answers are composed from the deterministic engine + curated NASA experiment database.
             Every cited experiment ID is verified against the database in code — fabricated citations are flagged, never shown.
           </p>
+          <p className="text-[11px] text-amber-500/80 mt-1">
+            The question text is recorded and echoed back; because no language model is called in
+            this build, the answer is composed from the current atmosphere and cited experiments
+            rather than parsed out of the question (see Methodology → F4).
+          </p>
         </div>
 
         {err && <div className="text-red-300 text-sm">Error: {err}</div>}
@@ -67,6 +75,9 @@ export default function AIScientist({ query }: { query: string }) {
                   : "bg-red-900/60 text-red-300 border-red-700"}`}>
                 {answer.citation_check_ok ? "citations verified ✓" : `fabricated caught: ${answer.fabricated_citations.join(", ")}`}
               </span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              question recorded: <span className="text-slate-300">{answer.question}</span>
             </div>
             <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans">{answer.answer}</pre>
             <div className="flex flex-wrap gap-2">

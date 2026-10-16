@@ -35,9 +35,14 @@ GRAVITY_OFFSET_PCT: Final[dict[str, float]] = {
     "earth": 0.0,
 }
 
-# Data-coverage envelope for the P axis (kPa) of the curated seed database
-# (min/max of the LOC-relevant records, excluding the Apollo 1 historical
-# reference). Outside this envelope the LOC curve is EXTRAPOLATED.
+# Calibration envelope of the LOC CURVE on the pressure axis (kPa): the range
+# over which LOC(P) was fitted to 1g ground anchors. Outside it the curve is
+# flagged EXTRAPOLATED and the map hatches the region rather than colouring it.
+#
+# This is a statement about the curve, not about the database: the record set
+# reaches 115.1 kPa because of the Apollo 1 historical reference, which is not
+# a controlled LOC measurement. The record-coverage range is a separate
+# quantity -- see engine.epistemics.evidence_pressure_range.
 P_ENVELOPE_KPA: Final[tuple[float, float]] = (50.0, 101.3)
 
 

@@ -19,14 +19,20 @@ statement, and where does the experimental evidence end?*
 - **Validation** — leave-one-out backtest of the engine against NASA's own held-out experiments.
 - **Pareto frontier** — fire-safety vs EVA weighting reveals a different optimum; FLARE never
   declares a single "best" atmosphere.
+- **Methodology** — the known-limitations list, the work that is deliberately *not* built, the
+  model-governance rules and the data-provenance table, served from the engine so the product
+  and the written record cannot drift apart.
 
 ## Design rules (enforced in code)
 
 1. No single fire-risk number — outputs are a 5-component Fire Hazard Vector.
 2. Every output carries an evidence label: Observed / Interpolated / Extrapolated / Insufficient.
 3. Every experiment record links to its NTRS source.
-4. The engine is deterministic; AI never sits inside it.
-5. The flammability boundary is rendered only where experimental coverage exists.
+4. The engine is deterministic, and **no language model is called anywhere in this build**.
+   Answers are composed from engine outputs and database records; every citation ID is verified
+   server-side and fabricated ones are flagged rather than shown.
+5. The flammability boundary is rendered only where the LOC curve was calibrated. Outside that
+   envelope the map is hatched, not coloured, so no pixel implies evidence that does not exist.
 
 ## Repository layout
 
@@ -42,10 +48,14 @@ backend/
     citations.py           server-side citation verification
   data/experiments.json    curated seed database (20 NTRS-referenced records)
   app/main.py              FastAPI endpoints
-  tests/                   engine unit tests asserting the dossier values
+  app/methodology.py       known limitations, future work and provenance served to the UI
+  tools/                   reproduce_dossier_log.py — regenerates the published test log
+  tests/                   engine + API tests asserting the dossier values
 frontend/
-  src/screens/             TradeSpace, EvidenceExplorer, AIScientist, Validation
+  src/screens/             TradeSpace, EvidenceExplorer, AIScientist, Validation, Methodology
   src/api.ts               typed REST client
+.github/workflows/ci.yml   tests + dossier log + frontend build on every push
+LICENSE                    MIT
 ```
 
 ## Running it
@@ -66,11 +76,19 @@ npm run dev        # dev server
 npm run build      # production build
 ```
 
-Tests:
+Tests (42 currently):
 
 ```bash
 py -m pytest backend/tests -q
 ```
+
+Regenerate the published test log in [docs/SCIENTIFIC-VALIDATION-DOSSIER.md](docs/SCIENTIFIC-VALIDATION-DOSSIER.md) §6 from the shipped code:
+
+```bash
+py -m backend.tools.reproduce_dossier_log
+```
+
+CI runs both, plus the frontend build, on every push — see [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ## Documentation
 
@@ -78,6 +96,8 @@ py -m pytest backend/tests -q
   derivations, provenance table, and executed test log.
 - [docs/IMPLEMENTATION-PLAN.md](docs/IMPLEMENTATION-PLAN.md) — build order and scope gates.
 - [docs/demo-script.md](docs/demo-script.md) — 4-minute demo script.
+- [docs/SECURITY-NOTES.md](docs/SECURITY-NOTES.md) — security pass: surface, enforced
+  controls, accepted risks, and how each control was checked.
 
 ## Scope
 

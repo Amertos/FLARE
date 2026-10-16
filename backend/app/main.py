@@ -4,18 +4,19 @@ Endpoints:
   GET  /api/scenario        hazard vector + evidence for one atmosphere state
   GET  /api/tradespace      P x O2 grid with LOC boundary + coverage layer
   GET  /api/experiments     ranked experiments for a query
-  POST /api/ask             RAG answer with server-verified citations (offline demo fallback)
+  POST /api/ask             engine-grounded answer with server-verified citations
+                            (deterministic; no language model is called)
   GET  /api/pareto          candidate set + Pareto frontier + weighted ranking
   POST /api/counterfactual  before/after deltas for dO2 / dflow
   GET  /api/validate        leave-out backtest of the engine against the DB
+  GET  /api/methodology     known limitations, future work, provenance
   GET  /api/health
 """
 from __future__ import annotations
 
-import os
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -28,19 +29,39 @@ from backend.engine import (
     rank_experiments,
     weighted_score,
 )
+from backend.app.methodology import methodology_payload
 from backend.engine.citations import verify_citations
 from backend.engine.epistemics import classify, coverage
+from backend.engine.hazard import MATERIAL_CLASSES
 from backend.engine.loc import P_ENVELOPE_KPA, epistemic_flag_for_pressure
 
 app = FastAPI(title="FLARE API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    # The client only ever sends JSON, so the preflight allow-list is narrowed
+    # to the one header it needs rather than "*" (security pass, finding H1).
+    allow_headers=["Content-Type"],
 )
 
 PSI_TO_KPA = 6.89476
+
+# Closed vocabularies. Declaring them as Literal types makes FastAPI reject an
+# out-of-set value with a 422 before it can reach the engine, so no unknown
+# gravity regime or material class can silently degrade the similarity and
+# coverage math (dossier §2.1 lists the four material classes).
+Gravity = Literal["microgravity", "lunar", "mars", "earth"]
+MaterialClass = Literal["polymer", "textile", "insulation", "composite"]
+
+assert tuple(MATERIAL_CLASSES) == (
+    "polymer", "textile", "insulation", "composite"
+), "MaterialClass vocabulary drifted from engine MATERIAL_CLASSES"
+
+
+# Every numeric query parameter is bounded to a physically meaningful range
+# (dossier §2.1); a value outside it is a caller error, and FastAPI answers
+# 422 rather than feeding it into the model.
 
 
 def _kpa(pressure_psia: float) -> float:
@@ -52,14 +73,25 @@ def health() -> dict[str, Any]:
     return {"status": "ok", "experiments": len(load_experiments())}
 
 
+@app.get("/api/methodology")
+def methodology() -> dict[str, Any]:
+    """Known limitations, future work, model governance and data provenance.
+
+    The dossier (§8) states that the known-limitations list ships in the
+    product UI. This endpoint is the product's single source for it; the
+    Methodology screen renders exactly this payload.
+    """
+    return methodology_payload()
+
+
 @app.get("/api/scenario")
 def scenario(
-    pressure_psia: float = 8.2,
-    o2_pct: float = 34.0,
-    gravity: str = "microgravity",
-    flow_ms: float = 0.2,
-    temperature_c: float = 22.0,
-    material_class: str = "polymer",
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    o2_pct: float = Query(34.0, ge=0.0, le=100.0),
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
 ) -> dict[str, Any]:
     exps = load_experiments()
     vec = hazard_vector(pressure_psia, o2_pct, gravity, flow_ms, temperature_c,
@@ -91,13 +123,14 @@ def scenario(
 
 @app.get("/api/tradespace")
 def tradespace(
-    gravity: str = "microgravity",
-    flow_ms: float = 0.2,
-    material_class: str = "polymer",
-    p_min: float = 4.5,
-    p_max: float = 16.7,
-    o2_min: float = 14.0,
-    o2_max: float = 45.0,
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
+    p_min: float = Query(4.0, ge=1.0, le=30.0),
+    p_max: float = Query(16.7, ge=1.0, le=30.0),
+    o2_min: float = Query(14.0, ge=0.0, le=100.0),
+    o2_max: float = Query(45.0, ge=0.0, le=100.0),
 ) -> dict[str, Any]:
     """P x O2 grid for the heatmap + LOC boundary points."""
     steps_p, steps_o2 = 34, 32
@@ -107,7 +140,7 @@ def tradespace(
     for p in ps:
         row = []
         for o2 in o2s:
-            vec = hazard_vector(p, o2, gravity, flow_ms, 22.0, material_class)
+            vec = hazard_vector(p, o2, gravity, flow_ms, temperature_c, material_class)
             row.append({
                 "ignition": vec["ignition"],
                 "spread": vec["spread"],
@@ -135,15 +168,19 @@ def tradespace(
         "grid": grid,
         "loc_boundary": boundary,
         "crew_band": {"po2_min_psia": 2.4, "po2_max_psia": 3.4},
+        # Coverage envelope on the P axis. The frontend hatches the region
+        # outside it instead of colouring it, so no pixel is coloured where
+        # NASA has no measurement (dossier §4.7 L2).
+        "p_envelope_kpa": [P_ENVELOPE_KPA[0], P_ENVELOPE_KPA[1]],
     }
 
 
 @app.get("/api/experiments")
 def experiments(
-    pressure_psia: float = 8.2,
-    o2_pct: float = 34.0,
-    gravity: str = "microgravity",
-    material_class: str = "polymer",
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    o2_pct: float = Query(34.0, ge=0.0, le=100.0),
+    gravity: Gravity = "microgravity",
+    material_class: MaterialClass = "polymer",
 ) -> dict[str, Any]:
     exps = load_experiments()
     ranked = rank_experiments(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
@@ -151,26 +188,35 @@ def experiments(
 
 
 class AskRequest(BaseModel):
-    question: str = Field(min_length=3)
-    pressure_psia: float = 8.2
-    o2_pct: float = 34.0
-    gravity: str = "microgravity"
-    flow_ms: float = 0.2
-    material_class: str = "polymer"
+    question: str = Field(min_length=3, max_length=500)
+    pressure_psia: float = Field(8.2, ge=1.0, le=30.0)
+    o2_pct: float = Field(34.0, ge=0.0, le=100.0)
+    gravity: Gravity = "microgravity"
+    flow_ms: float = Field(0.2, ge=0.0, le=5.0)
+    temperature_c: float = Field(22.0, ge=-20.0, le=60.0)
+    material_class: MaterialClass = "polymer"
 
 
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict[str, Any]:
-    """Evidence-grounded answer. Deterministic offline mode: the answer is
-    composed from the engine + database (no LLM key required). If OPENAI_API_KEY
-    is set, an LLM pass is layered on top; citations are verified either way.
+    """Evidence-grounded answer.
+
+    The answer is composed deterministically from engine outputs and database
+    records. No language model is called: there is no LLM client in this
+    build and no API key is read anywhere in the backend. The `question` field
+    is accepted and echoed into the response for the client's convenience; it
+    does not currently steer the composition. An LLM narration layer on top of
+    this same engine-grounded payload is stated as future work in the
+    Methodology screen (dossier §4.7 F4).
+
+    Citations are verified against the database in code either way.
     """
     exps = load_experiments()
     ranked = rank_experiments(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
                               req.material_class, exps)
     top = ranked[:5]
     vec = hazard_vector(req.pressure_psia, req.o2_pct, req.gravity, req.flow_ms,
-                        22.0, req.material_class)
+                        req.temperature_c, req.material_class)
     label = classify(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
                      req.material_class, exps)
     cov = coverage(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
@@ -201,6 +247,7 @@ def ask(req: AskRequest) -> dict[str, Any]:
     check = verify_citations(cited_ids, {e["experiment_id"] for e in exps})
 
     return {
+        "question": req.question,
         "answer": "\n\n".join(lines),
         "citations": check["valid"],
         "fabricated_citations": check["fabricated"],
@@ -212,10 +259,11 @@ def ask(req: AskRequest) -> dict[str, Any]:
 
 @app.get("/api/pareto")
 def pareto(
-    fire_weight: float = 0.5,
-    gravity: str = "microgravity",
-    flow_ms: float = 0.2,
-    material_class: str = "polymer",
+    fire_weight: float = Query(0.5, ge=0.0, le=1.0),
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
 ) -> dict[str, Any]:
     """Candidate atmospheres -> hazard vs crew/EVA benefit -> frontier."""
     candidates_def = [
@@ -228,7 +276,8 @@ def pareto(
     ]
     cands = []
     for c in candidates_def:
-        vec = hazard_vector(c["p"], c["o2"], gravity, flow_ms, 22.0, material_class)
+        vec = hazard_vector(c["p"], c["o2"], gravity, flow_ms, temperature_c,
+                            material_class)
         # normalize axes for the frontier: fire_risk lower-better, eva higher-better
         fire_risk = min(1.0, vec["ignition"] / 100.0)
         # EVA benefit: lower cabin pressure -> less prebreathe time (per NASA
@@ -252,22 +301,23 @@ def pareto(
 
 
 class CounterfactualRequest(BaseModel):
-    pressure_psia: float = 8.2
-    o2_pct: float = 34.0
-    gravity: str = "microgravity"
-    flow_ms: float = 0.2
-    material_class: str = "polymer"
-    delta_o2_pct: float = 0.0
-    delta_flow_ms: float = 0.0
+    pressure_psia: float = Field(8.2, ge=1.0, le=30.0)
+    o2_pct: float = Field(34.0, ge=0.0, le=100.0)
+    gravity: Gravity = "microgravity"
+    flow_ms: float = Field(0.2, ge=0.0, le=5.0)
+    temperature_c: float = Field(22.0, ge=-20.0, le=60.0)
+    material_class: MaterialClass = "polymer"
+    delta_o2_pct: float = Field(0.0, ge=-100.0, le=100.0)
+    delta_flow_ms: float = Field(0.0, ge=-5.0, le=5.0)
 
 
 @app.post("/api/counterfactual")
 def counterfactual(req: CounterfactualRequest) -> dict[str, Any]:
     before = hazard_vector(req.pressure_psia, req.o2_pct, req.gravity, req.flow_ms,
-                           22.0, req.material_class)
+                           req.temperature_c, req.material_class)
     after = hazard_vector(req.pressure_psia, req.o2_pct + req.delta_o2_pct,
-                          req.gravity, req.flow_ms + req.delta_flow_ms, 22.0,
-                          req.material_class)
+                          req.gravity, req.flow_ms + req.delta_flow_ms,
+                          req.temperature_c, req.material_class)
     keys = ["ignition", "spread", "persistence", "heat_release", "extinction_margin"]
     deltas = {k: round(after[k] - before[k], 1) for k in keys}
     return {

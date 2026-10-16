@@ -53,6 +53,43 @@ function HazardMap({ trade, o2Sel, pSel, onPick }: {
         .attr("fill", heat(trade.grid[i][j].ignition));
     }));
 
+    // Extrapolation regions: outside the experimental coverage envelope on the
+    // pressure axis no pixel is coloured. The area is hatched and labelled
+    // instead, and the hatch is drawn OVER the heat cells so colour can never
+    // imply evidence that does not exist (dossier §4.7 L2).
+    const defs = svg.append("defs");
+    const hatch = defs.append("pattern")
+      .attr("id", "flare-extrapolated")
+      .attr("width", 7).attr("height", 7)
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("patternTransform", "rotate(45)");
+    hatch.append("rect").attr("width", 7).attr("height", 7)
+      .attr("fill", "#020617").attr("opacity", 0.82);
+    hatch.append("line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 7)
+      .attr("stroke", "#f59e0b").attr("stroke-width", 1.6).attr("opacity", 0.55);
+
+    const kpaToPsia = (kpa: number) => kpa / 6.89476;
+    const plotX0 = M.l, plotX1 = W - M.r, plotH = H - M.t - M.b;
+    const clampX = (v: number) => Math.max(plotX0, Math.min(plotX1, v));
+    const envLo = clampX(x(kpaToPsia(trade.p_envelope_kpa[0])));
+    const envHi = clampX(x(kpaToPsia(trade.p_envelope_kpa[1])));
+    const regions: Array<{ x0: number; w: number }> = [];
+    if (envLo > plotX0) regions.push({ x0: plotX0, w: envLo - plotX0 });
+    if (envHi < plotX1) regions.push({ x0: envHi, w: plotX1 - envHi });
+    regions.forEach((r) => {
+      svg.append("rect").attr("x", r.x0).attr("y", M.t)
+        .attr("width", r.w).attr("height", plotH)
+        .attr("fill", "url(#flare-extrapolated)");
+    });
+    regions.forEach((r) => {
+      svg.append("text")
+        .attr("x", r.x0 + r.w / 2).attr("y", M.t + plotH / 2)
+        .attr("fill", "#fbbf24").attr("font-size", 10)
+        .attr("text-anchor", "middle")
+        .attr("transform", `rotate(-90 ${r.x0 + r.w / 2} ${M.t + plotH / 2})`)
+        .text("EXTRAPOLATED");
+    });
+
     // LOC boundary (only where covered)
     const line = d3.line<{ p_psia: number; loc_pct: number | null }>()
       .x((d) => x(d.p_psia)).y((d) => (d.loc_pct != null ? y(d.loc_pct) : NaN))
@@ -114,6 +151,11 @@ export default function TradeSpace({ scenario, trade, mission, pressure, o2, onP
           <span><span className="inline-block w-3 h-3 bg-emerald-500 align-middle mr-1 rounded-sm" />low</span>
           <span><span className="inline-block w-3 h-3 bg-sky-400/30 align-middle mr-1 rounded-sm" />crew-safe pO₂ band</span>
           <span>— LOC flammability boundary (rendered only within data coverage)</span>
+          <span>
+            <span className="inline-block w-3 h-3 align-middle mr-1 rounded-sm border border-amber-600 bg-slate-950"
+              style={{ backgroundImage: "repeating-linear-gradient(45deg, #f59e0b55 0 1px, transparent 1px 5px)" }} />
+            outside NASA data coverage — hatched, never coloured
+          </span>
         </div>
       </div>
 

@@ -49,6 +49,15 @@ export interface TradeSpaceResponse {
   }>>;
   loc_boundary: Array<{ p_psia: number; loc_pct: number | null; flag: string }>;
   crew_band: { po2_min_psia: number; po2_max_psia: number };
+  p_envelope_kpa: [number, number];
+}
+
+export interface MethodologyResponse {
+  limitations: Array<{ id: string; title: string; detail: string }>;
+  future_work: Array<{ id: string; title: string; detail: string }>;
+  governance: string[];
+  data_provenance: Array<{ claim: string; source: string }>;
+  dossier_refs: string[];
 }
 
 export interface ValidationResponse {
@@ -72,6 +81,7 @@ export interface ParetoResponse {
 }
 
 export interface AskResponse {
+  question: string;
   answer: string; citations: string[]; fabricated_citations: string[];
   citation_check_ok: boolean; engine_summary: HazardVector; mode: string;
 }
@@ -88,5 +98,6 @@ export const api = {
   validate: () => get<ValidationResponse>("/api/validate"),
   pareto: (q: string) => get<ParetoResponse>(`/api/pareto?${q}`),
   ask: (body: Record<string, unknown>) => post<AskResponse>("/api/ask", body),
+  methodology: () => get<MethodologyResponse>("/api/methodology"),
   counterfactual: (body: Record<string, unknown>) => post<CounterfactualResponse>("/api/counterfactual", body),
 };

@@ -9,9 +9,17 @@ import math
 
 import pytest
 
+from backend.app.methodology import (
+    DATA_PROVENANCE,
+    FUTURE_WORK,
+    GOVERNANCE,
+    LIMITATIONS,
+)
 from backend.engine import (
     LOC_A,
     LOC_B,
+    MATERIAL_CLASSES,
+    THICKNESS_FACTOR_BY_MATERIAL,
     classify,
     coverage,
     effective_loc,
@@ -21,6 +29,7 @@ from backend.engine import (
     po2_normoxia_pct,
     po2_psia,
     rank_experiments,
+    thickness_factor_for,
     weighted_score,
 )
 from backend.engine.citations import verify_citations
@@ -167,6 +176,29 @@ def test_similarity_ranking_order():
     assert by_id["EXPATM-EVA-REF-01"] > by_id["LOC-1G-101KPA-01"]
 
 
+def test_loc_envelope_and_record_range_are_distinct():
+    # Two different questions, deliberately two different numbers:
+    #   "is the LOC curve calibrated here?" -> loc.P_ENVELOPE_KPA
+    #   "is there any record near here?"    -> evidence_pressure_range
+    from backend.engine import evidence_pressure_range
+    from backend.engine.loc import P_ENVELOPE_KPA
+    exps = load_experiments()
+    assert evidence_pressure_range(exps) == (50.0, 115.1)
+    assert P_ENVELOPE_KPA == (50.0, 101.3)
+    assert evidence_pressure_range(exps)[1] > P_ENVELOPE_KPA[1]
+
+
+def test_pressure_110_is_interpolated_evidence_but_extrapolated_curve():
+    # 110 kPa sits inside the record range (Apollo 1 reaches 115.1 kPa) but
+    # outside the curve's calibration envelope. The two labels must disagree,
+    # and the map must hatch the curve while the evidence view still lists the
+    # records.
+    from backend.engine.loc import epistemic_flag_for_pressure
+    exps = load_experiments()
+    assert classify(110.0, 20.0, "earth", "polymer", exps) == "INTERPOLATED"
+    assert epistemic_flag_for_pressure(110.0) == "EXTRAPOLATED"
+
+
 def test_coverage_bounds():
     exps = load_experiments()
     c = coverage(56.5, 34.0, "microgravity", "polymer", exps)
@@ -217,3 +249,154 @@ def test_below_boundary_near_zero_ignition():
     # 12% O2 at 101.3 kPa is well below LOC (21%) -> tiny ignition tendency
     h = hazard_vector(14.7, 12.0, "earth", 0.2)
     assert h["ignition"] < 5.0
+
+
+# ---------- Test 8: material classes and the thickness factor (dossier §4.5) ----------
+
+def test_material_vocabulary_covers_dossier():
+    # dossier §2.1 declares exactly these four classes; the API vocabulary is
+    # asserted against this tuple at import time.
+    assert MATERIAL_CLASSES == ("polymer", "textile", "insulation", "composite")
+
+
+def test_thickness_factor_per_material():
+    assert set(THICKNESS_FACTOR_BY_MATERIAL) == set(MATERIAL_CLASSES)
+    assert thickness_factor_for("polymer") == 1.0
+    assert thickness_factor_for("textile") < 1.0
+    assert thickness_factor_for("insulation") < thickness_factor_for("textile")
+    assert thickness_factor_for("composite") > 1.0
+    # an unknown class degrades to the neutral factor, never to zero
+    assert thickness_factor_for("unobtainium") == 1.0
+
+
+def test_material_class_changes_hazard_vector():
+    # F_s carries the thickness factor, and F_p/F_b inherit it; F_i must NOT
+    # depend on it (dossier §4.6 derives ignition from LOC margin only).
+    poly = hazard_vector(8.2, 34.0, "microgravity", 0.2, 22.0, "polymer")
+    insul = hazard_vector(8.2, 34.0, "microgravity", 0.2, 22.0, "insulation")
+    comp = hazard_vector(8.2, 34.0, "microgravity", 0.2, 22.0, "composite")
+    assert insul["spread"] < poly["spread"] < comp["spread"]
+    assert insul["persistence"] < comp["persistence"]
+    assert poly["ignition"] == insul["ignition"] == comp["ignition"]
+
+
+def test_polymer_default_matches_previous_behaviour():
+    # The derived thickness factor for the default class must be 1.0 so that
+    # every figure proven in dossier §6 is unchanged by this wiring.
+    assert hazard_vector(8.2, 34.0, "microgravity", 0.2) == hazard_vector(
+        8.2, 34.0, "microgravity", 0.2, 22.0, "polymer", 1.0
+    )
+
+
+# ---------- Test 9: product-side claims (dossier §4.7, §8) ----------
+
+def test_methodology_covers_all_dossier_47_limits():
+    # dossier §8 states the §4.7 known-limitations list ships in the product UI.
+    # This is the assertion that keeps that claim true.
+    assert {lim["id"] for lim in LIMITATIONS} == {f"L{i}" for i in range(1, 8)}
+    assert all(lim["title"].strip() and lim["detail"].strip() for lim in LIMITATIONS)
+
+
+def test_methodology_declares_the_llm_layer_unbuilt():
+    unbuilt = next(f for f in FUTURE_WORK if f["id"] == "F4")
+    assert "NOT" in unbuilt["detail"]
+
+
+def test_governance_and_provenance_are_stated():
+    assert len(GOVERNANCE) >= 5
+    assert len(DATA_PROVENANCE) >= 7
+
+
+# ---------- Test 10: API contract and input validation ----------
+
+def _client():
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    return TestClient(app)
+
+
+def test_api_rejects_unknown_material_class():
+    r = _client().get("/api/scenario", params={"material_class": "unobtainium"})
+    assert r.status_code == 422
+
+
+def test_api_rejects_unknown_gravity_regime():
+    r = _client().get("/api/scenario", params={"gravity": "jupiter"})
+    assert r.status_code == 422
+
+
+def test_api_rejects_out_of_range_inputs():
+    c = _client()
+    assert c.get("/api/scenario", params={"o2_pct": 500}).status_code == 422
+    assert c.get("/api/scenario", params={"pressure_psia": 0}).status_code == 422
+    assert c.get("/api/scenario", params={"temperature_c": -273}).status_code == 422
+    assert c.get("/api/tradespace", params={"flow_ms": 99}).status_code == 422
+
+
+def test_api_temperature_reaches_the_engine():
+    # The temperature term in F_i (dossier §4.6) must be reachable from the API.
+    c = _client()
+    cool = c.get("/api/scenario", params={"temperature_c": 18}).json()
+    warm = c.get("/api/scenario", params={"temperature_c": 30}).json()
+    assert cool["inputs"]["temperature_c"] == 18.0
+    assert warm["hazard"]["ignition"] > cool["hazard"]["ignition"]
+
+
+def test_api_tradespace_reports_the_coverage_envelope():
+    body = _client().get("/api/tradespace").json()
+    assert body["p_envelope_kpa"] == [50.0, 101.3]
+    # Outside the envelope the boundary value is null: the map hatches the
+    # region instead of colouring it (dossier §4.7 L2).
+    below = [b for b in body["loc_boundary"]
+             if b["p_psia"] < 50.0 / 6.89476]
+    assert below
+    assert all(b["loc_pct"] is None for b in below)
+    assert all(b["flag"] == "EXTRAPOLATED" for b in below)
+    inside = [b for b in body["loc_boundary"]
+              if 50.0 / 6.89476 <= b["p_psia"] <= 101.3 / 6.89476]
+    assert inside and all(b["loc_pct"] is not None for b in inside)
+
+
+def test_api_ask_is_deterministic_and_verifies_citations():
+    r = _client().post("/api/ask", json={
+        "question": "Why is 34% O2 riskier than 28%?",
+        "pressure_psia": 8.2, "o2_pct": 34.0,
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["mode"] == "offline-deterministic"
+    assert body["citation_check_ok"] is True
+    assert body["fabricated_citations"] == []
+
+
+def test_api_ask_echoes_question_and_honours_temperature():
+    # /api/ask takes the same atmosphere state as /api/scenario, temperature
+    # included, and returns the question it was given so the client can show
+    # what was recorded. The answer itself is composed from the engine, not
+    # parsed from the question (dossier §4.7 F4).
+    c = _client()
+    q = "Why is 34% O2 riskier than 28%?"
+    base = {"question": q, "pressure_psia": 8.2, "o2_pct": 34.0}
+    cool = c.post("/api/ask", json={**base, "temperature_c": 18}).json()
+    warm = c.post("/api/ask", json={**base, "temperature_c": 30}).json()
+    assert cool["question"] == q
+    assert warm["engine_summary"]["ignition"] > cool["engine_summary"]["ignition"]
+
+
+def test_api_ask_rejects_overlong_question():
+    r = _client().post("/api/ask", json={"question": "x" * 501})
+    assert r.status_code == 422
+
+
+def test_api_methodology_matches_the_module():
+    body = _client().get("/api/methodology").json()
+    assert len(body["limitations"]) == len(LIMITATIONS)
+    assert len(body["future_work"]) == len(FUTURE_WORK)
+
+
+def test_api_cors_does_not_allow_arbitrary_methods():
+    r = _client().options("/api/ask", headers={
+        "Origin": "http://localhost:5173",
+        "Access-Control-Request-Method": "DELETE",
+    })
+    assert "DELETE" not in r.headers.get("access-control-allow-methods", "")

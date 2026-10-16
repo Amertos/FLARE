@@ -17,6 +17,28 @@ P_WEIGHT: Final[float] = 0.35
 O2_WEIGHT: Final[float] = 0.35
 
 
+def evidence_pressure_range(experiments: list[dict]) -> tuple[float, float]:
+    """Pressure range actually covered by the record set (kPa).
+
+    Deliberately NOT the same quantity as ``loc.P_ENVELOPE_KPA`` (50-101.3
+    kPa), and the two are reported separately wherever both are relevant:
+
+      * "is the LOC *curve* calibrated here?"  -> ``loc.P_ENVELOPE_KPA``
+      * "is there any *record* near here?"     -> this range
+
+    The record set reaches 115.1 kPa only because of the Apollo 1 historical
+    reference, which is not a controlled LOC measurement; the LOC curve was
+    never calibrated there. Collapsing the two into one number would either
+    overstate the curve's validity or hide Apollo 1 from the evidence view.
+    """
+    if not experiments:
+        return (0.0, 0.0)
+    return (
+        min(float(e["pressure_kpa"]) for e in experiments),
+        max(float(e["pressure_kpa"]) for e in experiments),
+    )
+
+
 def coverage(p_kpa: float, o2_pct: float, gravity: str, material_class: str,
              experiments: list[dict]) -> float:
     """Evidence coverage in [0,1]: best similarity across the record set."""
@@ -39,8 +61,7 @@ def classify(p_kpa: float, o2_pct: float, gravity: str, material_class: str,
     ]
     if len(nearby) >= 1:
         return "OBSERVED"
-    lo = min(float(e["pressure_kpa"]) for e in experiments)
-    hi = max(float(e["pressure_kpa"]) for e in experiments)
+    lo, hi = evidence_pressure_range(experiments)
     inside = lo <= p_kpa <= hi
     if len(nearby) < MIN_NEARBY and inside:
         return "INTERPOLATED"

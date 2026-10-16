@@ -4,6 +4,7 @@ import TradeSpace from "./screens/TradeSpace";
 import EvidenceExplorer from "./screens/EvidenceExplorer";
 import AIScientist from "./screens/AIScientist";
 import Validation from "./screens/Validation";
+import Methodology from "./screens/Methodology";
 
 const MISSIONS = [
   { id: "station", label: "🛰️ Station", gravity: "microgravity", p: 14.7, o2: 21 },
@@ -13,9 +14,14 @@ const MISSIONS = [
   { id: "apollo1", label: "🕯️ Apollo 1 (1967)", gravity: "earth", p: 16.7, o2: 100 },
 ];
 
+// The four material classes the engine and API accept (dossier §2.1). Each one
+// carries its own representative thickness factor in the engine, so switching
+// material genuinely moves the spread/persistence components.
 const MATERIALS = [
   { id: "polymer", label: "Polymer (PMMA-class)" },
   { id: "textile", label: "Textile (cotton/fabric)" },
+  { id: "insulation", label: "Insulation (low-density foam)" },
+  { id: "composite", label: "Composite (laminate)" },
 ];
 
 export default function App() {
@@ -23,8 +29,11 @@ export default function App() {
   const [pressure, setPressure] = useState(8.2);
   const [o2, setO2] = useState(34);
   const [flow, setFlow] = useState(0.2);
+  const [temperature, setTemperature] = useState(22);
   const [material, setMaterial] = useState("polymer");
-  const [tab, setTab] = useState<"trade" | "evidence" | "ai" | "validation">("trade");
+  const [tab, setTab] = useState<
+    "trade" | "evidence" | "ai" | "validation" | "methodology"
+  >("trade");
   const [scenario, setScenario] = useState<ScenarioResponse | null>(null);
   const [trade, setTrade] = useState<TradeSpaceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,17 +49,22 @@ export default function App() {
   }, []);
 
   const query = useMemo(
-    () => `pressure_psia=${pressure}&o2_pct=${o2}&gravity=${mission.gravity}&flow_ms=${flow}&material_class=${material}`,
-    [pressure, o2, mission.gravity, flow, material]
+    () => `pressure_psia=${pressure}&o2_pct=${o2}&gravity=${mission.gravity}&flow_ms=${flow}&temperature_c=${temperature}&material_class=${material}`,
+    [pressure, o2, mission.gravity, flow, temperature, material]
   );
 
   useEffect(() => {
     let alive = true;
-    Promise.all([api.scenario(query), api.tradespace(`gravity=${mission.gravity}&flow_ms=${flow}&material_class=${material}`)])
+    Promise.all([
+      api.scenario(query),
+      api.tradespace(
+        `gravity=${mission.gravity}&flow_ms=${flow}&temperature_c=${temperature}&material_class=${material}`
+      ),
+    ])
       .then(([s, t]) => { if (alive) { setScenario(s); setTrade(t); setError(null); } })
       .catch((e) => alive && setError(String(e)));
     return () => { alive = false; };
-  }, [query, mission.gravity, flow, material]);
+  }, [query, mission.gravity, flow, temperature, material]);
 
   useEffect(() => { setPressure(mission.p); setO2(mission.o2); }, [mission]);
 
@@ -75,7 +89,7 @@ export default function App() {
             {MATERIALS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
           <label className="flex items-center gap-1.5 text-xs text-slate-300">
-            P <input type="range" min={4.5} max={16.7} step={0.1} value={pressure}
+            P <input type="range" min={4} max={16.7} step={0.1} value={pressure}
               onChange={(e) => setPressure(+e.target.value)} className="w-28 accent-orange-500" />
             <span className="font-mono w-14">{pressure.toFixed(1)} psi</span>
           </label>
@@ -85,19 +99,25 @@ export default function App() {
             <span className="font-mono w-12">{o2.toFixed(1)}%</span>
           </label>
           <label className="flex items-center gap-1.5 text-xs text-slate-300">
-            Flow <input type="range" min={0} max={0.5} step={0.01} value={flow}
+            Flow <input type="range" min={0} max={1} step={0.01} value={flow}
               onChange={(e) => setFlow(+e.target.value)} className="w-24 accent-orange-500" />
             <span className="font-mono w-16">{flow.toFixed(2)} m/s</span>
           </label>
+          <label className="flex items-center gap-1.5 text-xs text-slate-300">
+            T <input type="range" min={18} max={30} step={0.5} value={temperature}
+              onChange={(e) => setTemperature(+e.target.value)} className="w-24 accent-orange-500" />
+            <span className="font-mono w-12">{temperature.toFixed(1)} °C</span>
+          </label>
         </div>
         <nav className="max-w-7xl mx-auto px-4 flex gap-1 text-sm">
-          {(["trade", "evidence", "ai", "validation"] as const).map((t) => (
+          {(["trade", "evidence", "ai", "validation", "methodology"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-2 border-b-2 transition-colors ${tab === t ? "border-orange-500 text-orange-300 font-semibold" : "border-transparent text-slate-400 hover:text-slate-200"}`}>
               {t === "trade" && "Trade Space"}
               {t === "evidence" && "Evidence Explorer"}
               {t === "ai" && "AI Scientist"}
               {t === "validation" && "Validation"}
+              {t === "methodology" && "Methodology"}
             </button>
           ))}
         </nav>
@@ -112,9 +132,13 @@ export default function App() {
       )}
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {tab === "trade" && <TradeSpace scenario={scenario} trade={trade} mission={mission} pressure={pressure} o2={o2} />}        {tab === "evidence" && <EvidenceExplorer query={query} />}
+        {tab === "trade" && (
+          <TradeSpace scenario={scenario} trade={trade} mission={mission} pressure={pressure} o2={o2} />
+        )}
+        {tab === "evidence" && <EvidenceExplorer query={query} />}
         {tab === "ai" && <AIScientist query={query} />}
         {tab === "validation" && <Validation />}
+        {tab === "methodology" && <Methodology />}
       </main>
     </div>
   );
