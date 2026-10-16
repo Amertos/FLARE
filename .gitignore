@@ -1,0 +1,25 @@
+# Runtime logs
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+env/
+.env
+
+# Node / frontend build
+node_modules/
+dist/
+dist-ssr/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local tooling state
+.freebuff/
