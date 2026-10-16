@@ -35,6 +35,23 @@ GRAVITY_OFFSET_PCT: Final[dict[str, float]] = {
     "earth": 0.0,
 }
 
+# Ambient-temperature offset on the LOC boundary (pts of O2 per degC), relative
+# to the 22 degC reference of every figure in the dossier. Ignition of a solid
+# is governed by its SURFACE temperature: a warmer cabin raises the surface
+# temperature and therefore lowers the O2 concentration at which spread is
+# sustained. The direction of effect is physical; the magnitude (0.1 pt/K, hard
+# capped at +/-2 pt) is a bounded fit choice stated here, exactly like the flow
+# penalty, per dossier §4.7 L5.
+#
+# Earlier builds instead multiplied the ignition index by 2**((T-22)/10), which
+# drove components past the 100 they are presented as and saturated most of the
+# trade-space map above ~24 degC (measured: 39% of cells pinned at 30 degC).
+# Temperature now shifts the boundary, so every component stays inside 0-100 and
+# the map keeps its dynamic range.
+TEMP_REFERENCE_C: Final[float] = 22.0
+TEMP_SENSITIVITY_PCT_PER_K: Final[float] = 0.1
+TEMP_OFFSET_CAP_PCT: Final[float] = 2.0
+
 # Calibration envelope of the LOC CURVE on the pressure axis (kPa): the range
 # over which LOC(P) was fitted to 1g ground anchors. Outside it the curve is
 # flagged EXTRAPOLATED and the map hatches the region rather than colouring it.
@@ -76,10 +93,26 @@ def gravity_loc_offset_pct(gravity: str) -> float:
     return GRAVITY_OFFSET_PCT[gravity]
 
 
-def effective_loc(p_kpa: float, gravity: str, flow_ms: float = 0.2) -> float:
-    """Effective LOC % = ground trend + gravity offset + microgravity flow penalty."""
+def temperature_loc_offset_pct(temperature_c: float) -> float:
+    """Additive LOC offset (pts) from ambient temperature (dossier §4.7 L5).
+
+    Negative above the 22 degC reference (warmer -> lower effective LOC) and
+    capped, so the modifier can never dominate the pressure term.
+    """
+    raw = -TEMP_SENSITIVITY_PCT_PER_K * (temperature_c - TEMP_REFERENCE_C)
+    return max(-TEMP_OFFSET_CAP_PCT, min(TEMP_OFFSET_CAP_PCT, raw))
+
+
+def effective_loc(p_kpa: float, gravity: str, flow_ms: float = 0.2,
+                  temperature_c: float = TEMP_REFERENCE_C) -> float:
+    """Effective LOC % = ground trend + gravity + flow + temperature offsets.
+
+    Every modifier is additive on the boundary, so the returned value stays a
+    single O2 percentage and the derived hazard indices cannot leave 0-100.
+    """
     return (loc_percent(p_kpa) + gravity_loc_offset_pct(gravity)
-            + flow_penalty_pct(gravity, flow_ms))
+            + flow_penalty_pct(gravity, flow_ms)
+            + temperature_loc_offset_pct(temperature_c))
 
 
 def epistemic_flag_for_pressure(p_kpa: float) -> str:

@@ -15,7 +15,8 @@
     "outcome_type": "flame_spread",
     "verdict": "spread",
     "notes": "Largest-ever microgravity flame experiment; sustained flame spread at nominal cabin atmosphere.",
-    "ntrs_id": "20205002010",
+    "source_type": "ntrs",
+    "source_id": "20205002010",
     "source_url": "https://ntrs.nasa.gov/citations/20205002010"
   },
   {
@@ -34,7 +35,8 @@
     "outcome_type": "flame_spread",
     "verdict": "spread",
     "notes": "Same conditions as Saffire-I; repeat for reproducibility.",
-    "ntrs_id": "20205002010",
+    "source_type": "ntrs",
+    "source_id": "20205002010",
     "source_url": "https://ntrs.nasa.gov/citations/20205002010"
   },
   {
@@ -53,7 +55,8 @@
     "outcome_type": "flame_spread",
     "verdict": "self-extinguish",
     "notes": "Some card samples self-extinguished in microgravity; fuel-thickness dependent.",
-    "ntrs_id": "20205002010",
+    "source_type": "ntrs",
+    "source_id": "20205002010",
     "source_url": "https://ntrs.nasa.gov/citations/20205002010"
   },
   {
@@ -72,7 +75,8 @@
     "outcome_type": "flame_spread",
     "verdict": "self-extinguish",
     "notes": "Near-limit: low-flow PMMA rod self-extinguishes at 17% O2 in µg.",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -91,7 +95,8 @@
     "outcome_type": "flame_spread",
     "verdict": "spread",
     "notes": "Spread sustained at 19% O2 with adequate flow.",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -110,7 +115,8 @@
     "outcome_type": "flame_spread",
     "verdict": "spread",
     "notes": "Thin fabric spreads readily in µg at modest O2.",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -129,7 +135,8 @@
     "outcome_type": "flame_spread",
     "verdict": "self-extinguish",
     "notes": "Reduced flow + near-limit O2 -> self-extinguish (flow suppression of spread).",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -148,7 +155,8 @@
     "outcome_type": "heat_release",
     "verdict": "spread",
     "notes": "Thick PMMA sustains burning; HRR well below 100 W (glovebox scale).",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -167,7 +175,9 @@
     "outcome_type": "flammability_limit",
     "verdict": "spread",
     "notes": "µg spread sustained at 17% O2 at ~60 kPa (vs 18% at 1g) — Link et al. 2018.",
-    "ntrs_id": "PMC5760683",
+    "source_type": "pmc",
+    "source_id": "PMC5760683",
+    "source_note": "Pressure pairing (60 kPa) not confirmed against the paper's test matrix in this pass; the 17% microgravity figure is a gravity comparison in the source. Flagged, see dossier §4.7 L8.",
     "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5760683/"
   },
   {
@@ -186,7 +196,8 @@
     "outcome_type": "flammability_limit",
     "verdict": "self-extinguish",
     "notes": "1g downward spread limit near 18% O2 at 1 atm — comparator anchor.",
-    "ntrs_id": "PMC5760683",
+    "source_type": "pmc",
+    "source_id": "PMC5760683",
     "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC5760683/"
   },
   {
@@ -205,7 +216,8 @@
     "outcome_type": "ignition_delay",
     "verdict": "ignition",
     "notes": "Representative SoFIE-MIST condition: elevated O2/pressure/flow matrix for ignition & extinction.",
-    "ntrs_id": "20200000361",
+    "source_type": "ntrs",
+    "source_id": "20200000361",
     "source_url": "https://ntrs.nasa.gov/citations/20200000361"
   },
   {
@@ -224,7 +236,8 @@
     "outcome_type": "ignition_delay",
     "verdict": "no-ignition",
     "notes": "At nominal O2 with radiant assist, ignition delayed beyond test window (representative).",
-    "ntrs_id": "20200000361",
+    "source_type": "ntrs",
+    "source_id": "20200000361",
     "source_url": "https://ntrs.nasa.gov/citations/20200000361"
   },
   {
@@ -243,7 +256,8 @@
     "outcome_type": "crew_reference",
     "verdict": "n/a",
     "notes": "8.2 psia / 34% O2 Exploration Atmosphere: pO2 = 90% of normoxia; enables rapid EVA prebreathe. NTRS 20260002050.",
-    "ntrs_id": "20260002050",
+    "source_type": "ntrs",
+    "source_id": "20260002050",
     "source_url": "https://ntrs.nasa.gov/api/citations/20260002050/downloads/ICES-2026-324%20Final.pdf"
   },
   {
@@ -262,7 +276,8 @@
     "outcome_type": "flammability_limit",
     "verdict": "mixed",
     "notes": "Historic LOC tables for selected US spacecraft materials (Ivanov 1999).",
-    "ntrs_id": "20000024924",
+    "source_type": "ntrs",
+    "source_id": "20000024924",
     "source_url": "https://ntrs.nasa.gov/api/citations/20000024924/downloads/20000024924.pdf"
   },
   {
@@ -281,7 +296,8 @@
     "outcome_type": "combustion_physics",
     "verdict": "cool-flame-observed",
     "notes": "Cool-flame chemistry discovery; contextual for extinction physics (not a solid-fuel record).",
-    "ntrs_id": "20160001420",
+    "source_type": "ntrs",
+    "source_id": "20160001420",
     "source_url": "https://ntrs.nasa.gov/citations/20160001420"
   },
   {
@@ -300,7 +316,8 @@
     "outcome_type": "suppression",
     "verdict": "extinguished",
     "notes": "N2 dilution of the MSG working volume reduced effective O2 and extinguished burning (suppressant-dilution logic).",
-    "ntrs_id": "20210011385",
+    "source_type": "ntrs",
+    "source_id": "20210011385",
     "source_url": "https://ntrs.nasa.gov/citations/20210011385"
   },
   {
@@ -319,7 +336,8 @@
     "outcome_type": "historical_reference",
     "verdict": "flash-fire",
     "notes": "16.7 psia pure O2; flash fire spread within seconds (NASA History). pO2 = 541% of normoxia. Reference only — excluded from engine fitting.",
-    "ntrs_id": "nasa-history-apollo1",
+    "source_type": "nasa-history",
+    "source_id": "55-years-ago-the-apollo-1-fire",
     "source_url": "https://www.nasa.gov/history/55-years-ago-the-apollo-1-fire-and-its-aftermath/"
   },
   {
@@ -338,7 +356,8 @@
     "outcome_type": "flame_spread",
     "verdict": "spread",
     "notes": "Saffire-IV repeated large-scale spread with added sensors for suppression studies.",
-    "ntrs_id": "20205002010",
+    "source_type": "ntrs",
+    "source_id": "20205002010",
     "source_url": "https://ntrs.nasa.gov/citations/20205002010"
   },
   {
@@ -357,7 +376,9 @@
     "outcome_type": "flammability_limit",
     "verdict": "spread",
     "notes": "LOC decreases as total pressure increases — trend anchor at 70 kPa (Konno 2023 lineage).",
-    "ntrs_id": "S0379711223002576",
+    "source_type": "publisher",
+    "source_id": "S0379711223002576",
+    "source_note": "Source is a paywalled publisher article that cannot be read by a reviewer here, and the model 50/70/101.3 kPa anchor is fitted partly to this record. Flagged, see dossier §4.7 L8.",
     "source_url": "https://www.sciencedirect.com/science/article/abs/pii/S0379711223002576"
   },
   {
@@ -376,7 +397,9 @@
     "outcome_type": "flammability_limit",
     "verdict": "self-extinguish",
     "notes": "At 50 kPa the required O2 rises (~20%) — consistent with LOC(P)=a+b/P trend.",
-    "ntrs_id": "S0379711223002576",
+    "source_type": "publisher",
+    "source_id": "S0379711223002576",
+    "source_note": "Source is a paywalled publisher article that cannot be read by a reviewer here, and the model 50/70/101.3 kPa anchor is fitted partly to this record. Flagged, see dossier §4.7 L8.",
     "source_url": "https://www.sciencedirect.com/science/article/abs/pii/S0379711223002576"
   }
 ]

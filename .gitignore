@@ -23,3 +23,6 @@ Thumbs.db
 
 # Local tooling state
 .freebuff/
+
+%TEMP%/ea7ffde_*.json
+%TEMP%/ea7ffde_*.tsx

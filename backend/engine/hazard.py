@@ -30,6 +30,22 @@ THICKNESS_FACTOR_BY_MATERIAL: Final[dict[str, float]] = {
     "composite": 1.15,   # laminate: highest thermal mass of the set
 }
 
+# Normalization spans of the two O2-margin indices, in percentage points of
+# margin. Both indices are reported on 0-100; a span is a bounded fit choice
+# (dossier §4.7 L5), stated here rather than hidden in the arithmetic. They are
+# deliberately equal so that the two indices carry comparable information:
+# with a 10-pt span the extinction margin pinned at 100 for every atmosphere
+# above ~29% O2 (measured 28% -> 90.7, 34% -> 100, 45% -> 100), i.e. it stopped
+# distinguishing anything over most of the product's own input range.
+IGNITION_SPAN_PCT: Final[float] = 25.0
+EXTINCTION_SPAN_PCT: Final[float] = 25.0
+
+# Every component is reported on 0-100 and is now hard-clamped to it, so the UI
+# contract (a 0-100 bar / a bounded colour scale) cannot be broken by any input.
+COMPONENT_KEYS: Final[tuple[str, ...]] = (
+    "ignition", "spread", "persistence", "heat_release", "extinction_margin",
+)
+
 
 def thickness_factor_for(material_class: str) -> float:
     """Representative thickness factor for a material class (dossier §4.5)."""
@@ -66,7 +82,12 @@ def hazard_vector(
     """Compute the 5-component Fire Hazard Vector + crew side (dossier §4.6).
 
     Returns dict with ignition, spread, persistence, heat_release,
-    extinction_margin (0-100) and crew block (pO2, normoxia %, safe flag).
+    extinction_margin (each strictly within 0-100) and crew block (pO2,
+    normoxia %, safe flag).
+
+    Temperature enters through the effective LOC boundary (loc.py), not as a
+    multiplier on the indices, so no component can exceed 100 and the map keeps
+    its dynamic range across the slider.
 
     thickness_factor defaults to the representative factor for the material
     class (dossier §4.5); pass an explicit value to override it.
@@ -74,19 +95,17 @@ def hazard_vector(
     if thickness_factor is None:
         thickness_factor = thickness_factor_for(material_class)
     p_kpa = pressure_psia * 6.89476
-    loc_eff = effective_loc(p_kpa, gravity, flow_ms)
+    loc_eff = effective_loc(p_kpa, gravity, flow_ms, temperature_c)
     margin_pct = o2_pct - loc_eff  # >0 above boundary (more flammable)
 
-    # Ignition: normalized margin above effective LOC (dossier §4.6), plus a
-    # small Arrhenius-scaled temperature term referenced to 22 C.
-    # Normalization: 25 pts of margin spans the useful range so mid-range
-    # counterfactuals remain responsive (saturation only at extreme margins).
-    arr = 2.0 ** ((temperature_c - 22.0) / 10.0)  # doubles per +10 C
-    fi = _clamp01(margin_pct / 25.0) * 100.0 * arr
+    # Ignition: normalized margin above the effective LOC (dossier §4.6).
+    # IGNITION_SPAN_PCT of margin spans the useful range, so mid-range
+    # counterfactuals stay responsive and only extreme margins saturate.
+    fi = _clamp01(margin_pct / IGNITION_SPAN_PCT) * 100.0
     # Below-boundary ignition tendency is near-zero but not exactly zero
     # (pilot sources exist): small floor scaled by depth below boundary.
     if margin_pct < 0:
-        fi = max(0.0, 8.0 + margin_pct * 1.2) * arr
+        fi = max(0.0, 8.0 + margin_pct * 1.2)
 
     # Spread: ignition x flow factor (microgravity: low flow suppresses spread,
     # BASS-II; 1g: buoyancy supplies transport, weaker v-dependence).
@@ -94,17 +113,20 @@ def hazard_vector(
         flow_factor = _clamp01(flow_ms / 0.3) * 0.85 + 0.15
     else:
         flow_factor = _clamp01(flow_ms / 0.1) * 0.2 + 0.8
-    fs = fi * flow_factor * thickness_factor
+    fs = min(100.0, fi * flow_factor * thickness_factor)
 
-    # Persistence: thermal-mass effect via thickness (dossier §4.6).
-    fp = fs * _clamp01(0.4 + 0.6 * thickness_factor)
+    # Persistence: thermal-mass effect via thickness (dossier §4.6). For the
+    # reference class (factor 1.0) this equals spread exactly -- the two indices
+    # are coupled by construction and the UI says so rather than presenting
+    # them as independent measurements.
+    fp = min(100.0, fs * _clamp01(0.4 + 0.6 * thickness_factor))
 
     # Heat release: relative intensity on the BASS-II frame (<100 W glovebox
     # scale; FLARE reports relative, never absolute W for cabin scale).
-    fb = fp * 0.9
+    fb = min(100.0, fp * 0.9)
 
     # Extinction margin: how far O2 must drop to cross below effective LOC.
-    fe = _clamp01(margin_pct / 10.0) * 100.0
+    fe = _clamp01(margin_pct / EXTINCTION_SPAN_PCT) * 100.0
 
     return {
         "ignition": round(fi, 1),
