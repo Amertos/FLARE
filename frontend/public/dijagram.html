@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FLARE — skica kako radi</title>
+<style>
+  /* Papirna skica: rukopisni fontovi + nepravilne linije, nula zavisnosti. */
+  :root {
+    --ink: #1f2937;
+    --paper: #faf6ee;
+    --accent: #ea580c;   /* vatra */
+    --safe: #059669;
+    --info: #0284c7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Segoe Print", "Comic Sans MS", "Bradley Hand", cursive;
+    padding: 24px 16px 48px;
+  }
+  .page { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 2rem; margin: 0 0 4px; }
+  h1 .fire { color: var(--accent); }
+  .subtitle { color: #57534e; font-size: 1rem; margin-bottom: 28px; }
+  .subtitle em { color: var(--accent); font-style: normal; font-weight: bold; }
+
+  /* Ručno nacrtane kutije */
+  .box {
+    border: 2.5px solid var(--ink);
+    border-radius: 14px 6px 16px 8px / 8px 14px 5px 12px; /* nepravilno = rukopis */
+    padding: 12px 16px;
+    background: #fff;
+    box-shadow: 2px 3px 0 rgba(31,41,55,.15);
+  }
+  .box h2 { margin: 0 0 6px; font-size: 1.05rem; }
+  .box p, .box li { font-size: .88rem; line-height: 1.45; margin: 0; }
+  .tag { font-size: .72rem; border: 1.5px dashed var(--ink); border-radius: 8px; padding: 1px 8px; background: #fef3c7; }
+
+  .row { display: flex; align-items: stretch; gap: 10px; margin: 12px 0; flex-wrap: wrap; }
+  .col { flex: 1 1 260px; min-width: 230px; }
+
+  /* Strele u SVG-u */
+  .flow svg { width: 100%; height: 46px; display: block; }
+  .flow-note { text-align: center; font-size: .78rem; color: #78716c; margin-top: -8px; }
+
+  .danger { border-color: var(--accent); }
+  .danger h2 { color: var(--accent); }
+  .info { border-color: var(--info); }
+  .safe { border-color: var(--safe); }
+
+  ul { padding-left: 18px; }
+  li { margin: 2px 0; }
+
+  .stamp {
+    display: inline-block; border: 2.5px solid var(--accent); color: var(--accent);
+    border-radius: 10px; padding: 4px 14px; font-weight: bold;
+    transform: rotate(-3deg); font-size: 1rem; margin: 6px 0 20px;
+    background: #fff7ed;
+  }
+
+  .glava {
+    /* isjecak nepravilne "fotografije" ekrana */
+    border: 2px solid var(--ink); border-radius: 10px; padding: 8px 10px;
+    font-family: Consolas, monospace; font-size: .72rem; background: #020617; color: #fdba74;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1><span class="fire">🔥 FLARE</span> — kako radi? (skica)</h1>
+  <div class="subtitle">
+    Ideja: <em>NASA ide u Mjesečevu/Mars kabinu s manjim pritiskom i više O₂</em>.
+    To štedi vrijeme posade… ali <em>požar u takvoj atmosferi je drugačiji</em>.
+    FLARE računa rizik — i <u>pokazuje gdje podaci završavaju</u>.
+  </div>
+
+  <div class="stamp">bez vještačke inteligencije — čista inženjerska matematika</div>
+
+  <!-- KRUVI TOK: korisnik → UI → API → engine → baza → nazad -->
+
+  <div class="box col info" style="flex:1 1 100%">
+    <h2>1) Ti odabireš atmosferu</h2>      <p>Slajderi u zaglavlju: <b>pritisak</b> (4–16.7 psia), <b>O₂</b> (14–45%), <b>gravitacija</b> (mikro/Mjesec/Mars/1g), <b>protok zraka</b>, <b>materijal</b> (polimer, tekstil, izolacija, kompozit). Ili klikneš gotovu misiju: <span class="tag">Mars transit 8.2 / 34</span> <span class="tag">Apollo 1 — 16.7 / 100%</span>…</p>
+  </div>
+
+  <div class="flow"><svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="M50 2 C 46 16, 54 16, 50 28" stroke="var(--ink)" stroke-width="1.5" fill="none" marker-end="url(#ah)"/><defs><marker id="ah" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="var(--ink)"/></marker></defs></svg></div>
+
+  <div class="row">
+    <div class="box col">
+      <h2>2) UI ugrađuje taj broj</h2>
+      <p>Svaki tab reče dio priče:</p>
+      <ul>
+        <li><b>Trade Space</b> — mapa skoro pa svih mogućih atmosfera; <span class="tag">bijela linija = granica požara (LOC)</span>;</li>
+        <li><b>Freefall Lab</b> — kako plamen izgleda BEZ težine (lopta vs. suza);</li>
+        <li><b>Evidence</b> — najbliži NASA eksperimenti s izvorima;</li>
+        <li><b>Ask FLARE</b> — postaviš pitanje, ruter bira intenciju i formule koje se pitaju za odgovor;</li>
+        <li><b>Validation</b> — koliko je engine bio točan na 12 sagledanih eksperimenata (77.8%);</li>
+        <li><b>Methodology</b> — šta FLARE <u>NE</u> tvrdi.</li>
+      </ul>
+    </div>
+    <div class="box col danger">
+      <h2>3) Engine (backend) računa</h2>
+      <p>Pet modula, svaki čist:</p>
+      <ul>
+        <li><b>hazard.py</b> — 5 komponenti: zapaljivost, širenje, trajanje, toplina, granica gašenja;</li>
+        <li><b>loc.py</b> — LOC kriva <span class="glava">LOC(P)</span> od NASA podataka;</li>
+        <li><b>epistemics.py</b> — <span class="tag">OBSERVED</span> <span class="tag">INTERPOLATED</span> <span class="tag">EXTRAPOLATED</span> <span class="tag">INSUFFICIENT</span> — pošteno: izvan podataka ništa ne boji (šrafura);</li>
+        <li><b>similarity.py</b> — "koji eksperiment je najsličniji ovom stanju?";</li>
+        <li><b>intents.py</b> — ključne riječi pitanja → intencija → dvije konstantne formule.</li>
+      </ul>
+    </div>
+    <div class="box col safe">
+      <h2>4) NASA baza</h2>
+      <p>20 ručno pripremljenih zapisa, svaki sa NTRS/PMC linkom:</p>
+      <ul>
+        <li>probe <b>Saffire I–IV</b> (mali svemirski brodovi bez posade);</li>
+        <li><b>BASS-II</b> na ISS-u — gdje se plamen <em>ugasio</em>;</li>
+        <li>SoFIE-MIST, FLEX, LOC studije…</li>
+        <li>+1 historijski požar (Apollo 1) i 1 specifikacija (Exploration Atmosphere) — ali njih engine <u>NE</u> računa kao eksperiment (pravilo §6.1).</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="flow"><svg viewBox="0 0 100 30" preserveAspectRatio="none"><path d="M50 2 C 46 16, 54 16, 50 28" stroke="var(--ink)" stroke-width="1.5" fill="none" marker-end="url(#ah2)"/><defs><marker id="ah2" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6" fill="none" stroke="var(--ink)"/></marker></defs></svg></div>
+  <div class="flow-note">~50 ms — bez interneta, bez modela, bez tajne magije</div>
+
+  <div class="row">
+    <div class="box col" style="flex:1 1 100%">
+      <h2>5) Rezultati (ono što sudija vidi)</h2>
+      <ul>
+        <li><b>Pet KPI kartica</b> — margin iznad granice, pO₂ posade, pokrivenost dokazima…</li>
+        <li><b>3D teren zapaljivosti</b> + plamen koji mijenja oblik s gravitacijom;</li>
+        <li><b>Odgovori s citata</b> — svaki ID eksperimenta provjerava se protiv baze u kodu (ne mogu lažni citati);</li>
+        <li><b>Flight-Readiness Briefing</b> (⬇ dugme) — jedan Markdown dokument: stanje + dokazi + ograničenja + source lista;</li>
+        <li><b>Sve se nasljeđuje u URL</b> — linkom dijeliš vrijednosti na ekranu.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="subtitle" style="margin-top:26px">
+    Zašto bez AI? Jer za sigurnosne brojke <em>odgovor koji ne možeš ponovo sastaviti nije odgovor</em> —
+    isti ulaz daje <u>isti izlaz</u>, pokriven sa 95 testova i reprodukcija.
+    A pitanja u <b>Ask FLARE</b> rutiraju ključne riječi → intencija (vidi liniju "route: …" u odgovoru).
+  </div>
+
+</div>
+</body>
+</html>
