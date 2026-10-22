@@ -1,28 +1,35 @@
-# Runtime logs
-*.log
-
 # Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 venv/
-env/
-.env
 
-# Node / frontend build
+# Node / frontend
 node_modules/
-dist/
-dist-ssr/
+frontend/dist/
+frontend/.vite/
 
-# Editor / OS
-.vscode/
+# Env and secrets — never commit these
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Local run artifacts (dev-server logs, scratch space, tool state)
+*.log
+.scratch/
+.freebuff/
+flare-memo*.md
+
+# OS / editor
 .idea/
+.vscode/
+*.swp
+*~
 .DS_Store
 Thumbs.db
 
-# Local tooling state
-.freebuff/
-
-%TEMP%/ea7ffde_*.json
-%TEMP%/ea7ffde_*.tsx
+# Working UI-verification screenshots (dev artifacts, not project content)
+screenshots/

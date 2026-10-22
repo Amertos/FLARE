@@ -1,111 +1,185 @@
+@import "tailwindcss";
+
+/* FLARE is a single-screen dark console: the app sets its own dark palette on
+   the root element (`bg-slate-950 text-slate-100`), so the stylesheet stays
+   minimal and only fixes what utilities should not own. The Vite starter rules
+   that shipped here (a 1126px centred #root column with inline borders) were
+   removed: they fought the responsive layout the screens are built with. */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
+html,
+body,
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  background: #020617; /* slate-950 */
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+/* FLARE design tokens: shared by every screen and every 3D overlay so the
+   console reads as one product, not six. Referenced from Tailwind via
+   arbitrary values (bg-[var(--flare-…)]). */
+:root {
+  --flare-accent: #f97316;      /* fire accent, matches focus outline */
+  --flare-accent-soft: rgba(249, 115, 22, 0.14);
+  --flare-info: #38bdf8;        /* crew/habitability axis */
+  --flare-safe: #34d399;        /* below warned threshold */
+  --flare-warn: #fbbf24;
+  --flare-alarm: #ef4444;
+  --flare-surface: rgba(15, 23, 42, 0.65);
+  --flare-border: #1e293b;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+.panel {
+  background: var(--flare-surface);
+  border: 1px solid var(--flare-border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.15rem;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  background: var(--flare-surface);
+  border: 1px solid var(--flare-border);
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.kpi .kpi-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.25rem;
+  line-height: 1.1;
+  margin-top: 0.15rem;
+  white-space: nowrap; /* a 16.70 psia / EXTRAPOLATED state must wrap nothing inside its card */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Status dot with a soft glow for the header state pill. */
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  box-shadow: 0 0 9px 1px currentColor;
+}
+
+/* Subtle radial glow behind the header brand. Cosmetic only. */
+.brand-glow {
+  background:
+    radial-gradient(120px 60px at 30% 45%, var(--flare-accent-soft), transparent 70%);
+}
+
+/* Display face for the page masthead — an identity touch, not a theme change:
+   headings fall back gracefully wherever Inter fails to load. */
+@font-face {
+  font-family: "FLARE Display";
+  font-style: normal;
+  font-weight: 700 800;
+  font-display: swap;
+  font-stretch: 100%;
+  src: url("https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZthzA.woff2") format("woff2");
+}
+
+.masthead-title {
+  font-family: "FLARE Display", system-ui, sans-serif;
+  letter-spacing: -0.03em;
+}
+
+/* Screen intro type: the one paragraph that sets up what a screen answers.
+   Consistent voice across all six screens. */
+.screen-lede {
+  color: #94a3b8;
+  font-size: 0.857rem;  /* 12px — reads as support, not body copy */
+  line-height: 1.65;
+  max-width: 46rem;
+}
+
+/* Section-heading eyebrow: a tiny uppercase label above a screen title. */
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.panel-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #e2e8f0; /* slate-200 */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.panel-hint {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: #64748b; /* slate-500 */
+  white-space: nowrap;
+}
+
+/* Uniform panel corner glyph: a small, quiet marker that makes the console
+   read as designed rather than defaulted. Appears in every panel title row. */
+.corner-mark {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--flare-accent), transparent);
+  opacity: 0.9;
+}
+
+/* Number-first typography for tables: columns line up because every numeric
+   cell is tabular by default in mono contexts across the six screens. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The screen fade-in: a house style entrance that ties the six screens
+   together. Motion respects the OS preference. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen-enter {
+    animation: flare-screen-in 0.28s ease-out;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+@keyframes flare-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
-p {
-  margin: 0;
+
+/* Scrollbar in the console dark, so wide tables and long lists do not show a
+   jarring light gutter. */
+* {
+  scrollbar-color: #334155 transparent;
+  scrollbar-width: thin;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* Keyboard focus stays visible everywhere — the app is usable with the
+   keyboard only, and the slider row in the header is dense. */
+:focus-visible {
+  outline: 2px solid #f97316; /* orange-500 */
+  outline-offset: 2px;
+  border-radius: 2px;
 }

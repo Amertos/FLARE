@@ -77,6 +77,18 @@ LIMITATIONS: list[dict[str, str]] = [
             "database grows."
         ),
     },
+    {
+        "id": "L8",
+        "title": "The 3D view is schematic, not a simulation",
+        "detail": (
+            "The Freefall Lab screen renders flame shape, colour tendency and front "
+            "advance from engine outputs and published behaviour. It is not a CFD "
+            "solution and not a prediction of a specific hardware fire: shape also "
+            "depends on fuel geometry and imposed ventilation, which the model does "
+            "not resolve. Front speed is shown in relative units against the "
+            "Saffire-I reference condition, never as m/s."
+        ),
+    },
 ]
 
 # Work that is explicitly NOT built. Stated here so the product does not imply
@@ -113,8 +125,11 @@ FUTURE_WORK: list[dict[str, str]] = [
         "title": "LLM-augmented narration",
         "detail": (
             "Answers are composed deterministically from the engine and the "
-            "database. An optional LLM narration layer is planned but is NOT "
-            "implemented in this build; no model is called at any point."
+            "database, steered by an explicit keyword router (the routing "
+            "decision is returned with every answer). An optional LLM "
+            "narration layer *above* this engine-grounded payload is planned "
+            "but is NOT implemented in this build; no model is called at any "
+            "point, and no question text is parsed by one."
         ),
     },
 ]
@@ -122,8 +137,11 @@ FUTURE_WORK: list[dict[str, str]] = [
 GOVERNANCE: list[str] = [
     "The engine is pure, deterministic and unit-tested; the same inputs always "
     "produce the same outputs.",
-    "No quantitative claim is produced by the AI layer. Every number shown comes "
-    "from the engine.",
+    "No quantitative claim is produced by the answer layer. Every number shown "
+    "comes from the engine; the question router only selects which quantities "
+    "are reported, and it returns its own decision with the answer.",
+    "Records without a combustion verdict (an atmosphere specification, a "
+    "historical fire) are never presented as supporting fire evidence.",
     "Every cited experiment ID is verified against the database in code before "
     "display; fabricated citations are caught and flagged, never shown.",
     "Every experiment record links to its NASA source (NTRS ID + URL).",

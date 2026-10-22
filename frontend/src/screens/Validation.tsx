@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type ValidationResponse } from "../api";
+import { ScreenHeader, FlarePanel } from "../ui/FlarePanel";
 
 export default function Validation() {
   const [v, setV] = useState<ValidationResponse | null>(null);
@@ -15,30 +16,29 @@ export default function Validation() {
   if (!v) return <div className="text-slate-400 text-sm p-6">Loading backtest…</div>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 screen-enter">
+      <ScreenHeader
+        eyebrow="Screen 5 · The grade"
+        title="Validation — graded, not claimed"
+        lede="The engine is graded against NASA's own held-out experiments, with every miss explained and the backtest reproducible from the shipped test suite. We publish our accuracy and our failures."
+      />
+
       <div className="grid md:grid-cols-3 gap-4">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-          <div className="text-xs text-slate-400">Leave-one-out accuracy</div>
-          <div className="text-3xl font-bold font-mono mt-1">{v.accuracy != null ? (v.accuracy * 100).toFixed(1) + "%" : "—"}</div>
+        <FlarePanel title="Leave-one-out accuracy">
+          <div className="text-3xl font-bold font-mono num">{v.accuracy != null ? (v.accuracy * 100).toFixed(1) + "%" : "—"}</div>
           <div className="text-xs text-slate-500 mt-1">{v.correct} / {v.total} experiments classified correctly</div>
-        </div>
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-          <div className="text-xs text-slate-400">Non-anchor accuracy</div>
-          <div className="text-3xl font-bold font-mono mt-1 text-emerald-300">{v.accuracy_non_anchor != null ? (v.accuracy_non_anchor * 100).toFixed(1) + "%" : "—"}</div>
+        </FlarePanel>
+        <FlarePanel title="Non-anchor accuracy">
+          <div className="text-3xl font-bold font-mono num text-emerald-300">{v.accuracy_non_anchor != null ? (v.accuracy_non_anchor * 100).toFixed(1) + "%" : "—"}</div>
           <div className="text-xs text-slate-500 mt-1">excluding records that are fit anchors of the LOC(P) curve</div>
-        </div>
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-          <div className="text-xs text-slate-400">Method</div>
+        </FlarePanel>
+        <FlarePanel title="Method">
           <div className="text-sm mt-1 text-slate-300">{v.method}</div>
           <div className="text-xs text-slate-500 mt-1">Reproducible: <code>py -m pytest backend/tests -q</code></div>
-        </div>
+        </FlarePanel>
       </div>
 
-      <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-        <p className="text-xs text-slate-400 mb-3">
-          The engine classifies each NASA experiment's verdict (spread vs self-extinguish) from the LOC boundary built from the <em>other</em> records.
-          Misses are shown with explanations — we publish our failures, not just our accuracy.
-        </p>
+      <FlarePanel title="Leave-one-out backtest — every record, every miss explained" hint="spread vs self-extinguish, classified from the boundary built without each record">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead><tr className="text-slate-500 text-left border-b border-slate-800">
@@ -72,7 +72,7 @@ export default function Validation() {
             </tbody>
           </table>
         </div>
-      </div>
+      </FlarePanel>
     </div>
   );
 }

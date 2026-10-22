@@ -1,8 +1,20 @@
 import { useState } from "react";
 import { api, type AskResponse, type CounterfactualResponse } from "../api";
+import { ScreenHeader, FlarePanel } from "../ui/FlarePanel";
 
-export default function AIScientist({ query }: { query: string }) {
-  const [question, setQuestion] = useState("Why is 34% O2 riskier than 28% at the same pressure?");
+const STARTERS = [
+  "Why is 34% O2 riskier than 28% at the same pressure?",
+  "Which experiments support this atmosphere?",
+  "What if airflow drops to 0.05 m/s?",
+  "What pressure makes this atmosphere non-flammable?",
+  "How accurate is the model on held-out experiments?",
+];
+
+export default function AIScientist({ query, onCite }: {
+  query: string;
+  onCite: (experimentId: string) => void;
+}) {
+  const [question, setQuestion] = useState(STARTERS[0]);
   const [answer, setAnswer] = useState<AskResponse | null>(null);
   const [cf, setCf] = useState<CounterfactualResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -21,10 +33,11 @@ export default function AIScientist({ query }: { query: string }) {
     material_class: params.get("material_class")!,
   };
 
-  async function run() {
+  async function run(asked = question) {
     setBusy(true); setErr(null);
     try {
-      setAnswer(await api.ask(body));
+      setAnswer(await api.ask({ ...body, question: asked }));
+      setQuestion(asked);
     } catch (e) { setErr(String(e)); }
     setBusy(false);
   }
@@ -38,35 +51,56 @@ export default function AIScientist({ query }: { query: string }) {
   }
 
   return (
-    <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+    <div className="screen-enter">
+      <ScreenHeader
+        eyebrow="Screen 4 · The question"
+        title="Ask FLARE"
+        lede="Questions are routed by an explicit keyword model into intents, and the intent decides which engine quantities the answer reports. No language model is called anywhere in this build — answers are composed from the deterministic engine, and every cited experiment is verified against the database in code."
+      />
+
+      <div className="grid lg:grid-cols-[1fr_320px] gap-4 mt-3">
       <div className="space-y-4">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+        <FlarePanel title="Question console" hint="deterministic router · no LLM">
           <div className="flex gap-2">
-            <input className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
-              value={question} onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && run()}
-              placeholder="Ask about this atmosphere…" />
-            <button onClick={run} disabled={busy}
+            <label className="flex-1">
+              <span className="sr-only">Ask about this atmosphere</span>
+              <input className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"
+                value={question} onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && run()}
+                placeholder="Ask about this atmosphere…" />
+            </label>
+            <button onClick={() => run()} disabled={busy}
               className="bg-orange-600 hover:bg-orange-500 disabled:opacity-50 rounded px-4 py-2 text-sm font-semibold">
               {busy ? "…" : "Ask"}
             </button>
           </div>
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {STARTERS.map((s) => (
+              <button key={s} onClick={() => run(s)} disabled={busy}
+                className="text-[11px] px-2 py-1 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-300 disabled:opacity-50">
+                {s}
+              </button>
+            ))}
+          </div>
           <p className="text-[11px] text-slate-500 mt-2">
-            Answers are composed from the deterministic engine + curated NASA experiment database.
-            Every cited experiment ID is verified against the database in code — fabricated citations are flagged, never shown.
+            A question outside the engine's scope is answered as out of scope rather than narrated.
           </p>
-          <p className="text-[11px] text-amber-500/80 mt-1">
-            The question text is recorded and echoed back; because no language model is called in
-            this build, the answer is composed from the current atmosphere and cited experiments
-            rather than parsed out of the question (see Methodology → F4).
-          </p>
-        </div>
+        </FlarePanel>
 
-        {err && <div className="text-red-300 text-sm">Error: {err}</div>}
+        {err && <div className="text-red-300 text-sm" role="alert">Error: {err}</div>}
 
         {answer && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs">
+          <FlarePanel title="Answer" headerExtra={null}>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-slate-500">route:</span>
+              <span className="font-mono text-orange-300 border border-orange-900/70 bg-orange-950/40 rounded px-1.5 py-0.5">
+                {answer.intent}
+              </span>
+              {answer.intent_matched.length > 0 && (
+                <span className="text-slate-500 font-mono text-[11px]">
+                  matched “{answer.intent_matched.join("”, “")}” · confidence {answer.intent_confidence}
+                </span>
+              )}
               <span className="text-slate-500">mode:</span>
               <span className="font-mono text-slate-300">{answer.mode}</span>
               <span className={`ml-auto px-2 py-0.5 rounded border font-mono text-[10px] ${
@@ -80,29 +114,66 @@ export default function AIScientist({ query }: { query: string }) {
               question recorded: <span className="text-slate-300">{answer.question}</span>
             </div>
             <pre className="whitespace-pre-wrap text-sm text-slate-200 font-sans">{answer.answer}</pre>
-            <div className="flex flex-wrap gap-2">
-              {answer.citations.map((c) => (
-                <button key={c}
-                  onClick={() => {
-                    const el = document.getElementById(`exp-${c}`);
-                    if (el) { el.scrollIntoView({ behavior: "smooth" }); el.classList.add("ring", "ring-orange-500"); setTimeout(() => el.classList.remove("ring", "ring-orange-500"), 2000); }
-                  }}
-                  className="text-[11px] font-mono bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sky-300">
-                  📄 {c}
-                </button>
-              ))}
-            </div>
-          </div>
+
+            {answer.citations.length > 0 && (
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">
+                  Supporting evidence — controlled experiments. Click to open the record:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {answer.citations.map((c) => (
+                    <button key={c} onClick={() => onCite(c)}
+                      className="text-[11px] font-mono bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sky-300">
+                      📄 {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {answer.context_citations.length > 0 && (
+              <div>
+                <div className="text-[11px] text-slate-500 mb-1">
+                  Context records — nearest rows that carry no combustion verdict, so they are not
+                  counted as fire evidence:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {answer.context_citations.map((c) => (
+                    <button key={c} onClick={() => onCite(c)}
+                      title={answer.context_kinds[c]}
+                      className="text-[11px] font-mono bg-slate-800/60 hover:bg-slate-700 border border-amber-900/60 rounded px-2 py-1 text-amber-300">
+                      🏷️ {c} <span className="text-slate-500">({answer.context_kinds[c]})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {answer.suggested_questions.length > 0 && (
+              <div className="pt-1 border-t border-slate-800">
+                <div className="text-[11px] text-slate-500 mb-1">Follow-ups the engine can answer:</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {answer.suggested_questions.map((s) => (
+                    <button key={s} onClick={() => run(s)} disabled={busy}
+                      className="text-[11px] px-2 py-1 rounded border border-slate-700 hover:bg-slate-700 text-slate-300 disabled:opacity-50">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </FlarePanel>
         )}
 
         {cf && (
-          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-sm">Counterfactual result</h3>
+          <FlarePanel
+            title="Counterfactual result"
+            headerExtra={
               <span className={`text-xs font-mono px-2 py-0.5 rounded ${cf.overall === "WORSE" ? "bg-red-900/60 text-red-300" : "bg-emerald-900/60 text-emerald-300"}`}>
                 overall {cf.overall}
               </span>
-            </div>
+            }
+          >
             <table className="w-full text-xs">
               <thead><tr className="text-slate-500 text-left">
                 <th className="py-1">Component</th><th>Before</th><th>After</th><th>Δ</th>
@@ -120,31 +191,38 @@ export default function AIScientist({ query }: { query: string }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </FlarePanel>
         )}
       </div>
 
-      <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 h-fit">
-        <h3 className="font-semibold text-sm mb-2">Counterfactuals</h3>
-        <p className="text-[11px] text-slate-500 mb-3">Ask the engine "what if" — deltas are computed by re-running the deterministic model, not by the AI.</p>
+      <FlarePanel title="Counterfactuals" className="h-fit">
+        <p className="text-[11px] text-slate-500 mb-3">
+          Ask the engine “what if” — deltas are computed by re-running the deterministic model,
+          not by a language model.
+        </p>
         <div className="space-y-2">
           <button onClick={() => counterfactual(2, 0)} disabled={busy}
-            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left">
+            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left disabled:opacity-50">
             🔺 What if O₂ increases by 2%?
           </button>
           <button onClick={() => counterfactual(-2, 0)} disabled={busy}
-            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left">
+            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left disabled:opacity-50">
             🔻 What if O₂ decreases by 2%?
           </button>
           <button onClick={() => counterfactual(0, -0.15)} disabled={busy}
-            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left">
+            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left disabled:opacity-50">
             💨 What if airflow drops by 0.15 m/s?
           </button>
           <button onClick={() => counterfactual(0, 0.15)} disabled={busy}
-            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left">
+            className="w-full bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded px-3 py-2 text-sm text-left disabled:opacity-50">
             💨 What if airflow rises by 0.15 m/s?
           </button>
         </div>
+        <p className="text-[11px] text-slate-500 mt-3">
+          Counterfactual deltas rank atmospheres relative to each other. They are not absolute risk
+          and they inherit every limitation listed on the Methodology screen.
+        </p>
+      </FlarePanel>
       </div>
     </div>
   );

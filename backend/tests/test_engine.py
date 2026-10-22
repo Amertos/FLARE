@@ -292,8 +292,9 @@ def test_polymer_default_matches_previous_behaviour():
 
 def test_methodology_covers_all_dossier_47_limits():
     # dossier §8 states the §4.7 known-limitations list ships in the product UI.
-    # This is the assertion that keeps that claim true.
-    assert {lim["id"] for lim in LIMITATIONS} == {f"L{i}" for i in range(1, 8)}
+    # This is the assertion that keeps that claim true. L8 was added with the
+    # 3D Freefall Lab screen: the visualisation is schematic, not a simulation.
+    assert {lim["id"] for lim in LIMITATIONS} == {f"L{i}" for i in range(1, 9)}
     assert all(lim["title"].strip() and lim["detail"].strip() for lim in LIMITATIONS)
 
 

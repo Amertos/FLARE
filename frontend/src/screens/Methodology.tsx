@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type MethodologyResponse } from "../api";
+import { ScreenHeader, FlarePanel } from "../ui/FlarePanel";
 
 function Section({
   title,
@@ -13,16 +14,13 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-      <div className="flex items-baseline gap-2 mb-1">
-        <h2 className="font-semibold text-sm">{title}</h2>
-        {count !== undefined && (
-          <span className="text-[10px] font-mono text-slate-500">{count}</span>
-        )}
-      </div>
+    <FlarePanel
+      title={title}
+      hint={count !== undefined ? String(count) : undefined}
+    >
       {subtitle && <p className="text-[11px] text-slate-500 mb-3">{subtitle}</p>}
       <div className="space-y-2">{children}</div>
-    </section>
+    </FlarePanel>
   );
 }
 
@@ -45,20 +43,14 @@ export default function Methodology() {
   if (!data) return <div className="text-slate-400 text-sm p-6">Loading methodology…</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-        <h1 className="font-semibold">Methodology — what FLARE does not claim</h1>
-        <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-          FLARE is a decision-support tool. It never states which atmosphere is best, it
-          never issues an operational command, and it does not colour a single pixel where
-          NASA has no measurement. Everything on this screen is served by the engine
-          (<code className="text-slate-300">/api/methodology</code>) so the product and the
-          written record cannot drift apart.
-        </p>
-        <p className="text-[11px] text-slate-500 mt-2 font-mono">
-          {data.dossier_refs.join("  ·  ")}
-        </p>
-      </div>
+    <div className="space-y-4 screen-enter">
+      <ScreenHeader
+        eyebrow="Screen 6 · The ledger"
+        title="Methodology — what FLARE does not claim"
+        lede="FLARE is a decision-support tool. It never states which atmosphere is best, never issues an operational command, and does not colour a single pixel where NASA has no measurement. Everything on this screen is served by the engine (/api/methodology) so the product and the written record cannot drift apart."
+      />
+
+      <p className="text-[11px] text-slate-500 font-mono -mt-2">{data.dossier_refs.join("  ·  ")}</p>
 
       <Section
         title="Known limitations"

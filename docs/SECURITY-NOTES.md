@@ -13,6 +13,7 @@ and what is deliberately accepted, rather than implying a hardening level the bu
 | Entry point | Methods | Notes |
 |---|---|---|
 | `/api/scenario`, `/api/tradespace`, `/api/experiments`, `/api/pareto` | GET | Query parameters only |
+| `/api/report` | GET | Query parameters only; returns generated Markdown |
 | `/api/validate`, `/api/methodology`, `/api/health` | GET | No parameters |
 | `/api/ask`, `/api/counterfactual` | POST | JSON body, bounded by a Pydantic model |
 
@@ -30,7 +31,15 @@ request input; the dataset path is a module constant (`backend/data/__init__.py`
    to the physically meaningful range (dossier §2.1): 1–30 psia, 0–100 % O₂, 0–5 m/s flow,
    −20–60 °C, 0–1 fire weight, ±100 pts Δ O₂. Out-of-range input is `422`, not a clamped value.
 3. **Bounded text.** `question` is 3–500 characters; it is never evaluated, interpolated into a
-   query, or rendered as markup — it is echoed back in a React text node.
+   query, or rendered as markup — it is echoed back in a React text node. It reaches exactly two
+   code paths, both pure: a keyword match against a module-level table, and two number regexes.
+   A question that matches nothing is routed to the generic intent, and one that matches the
+   out-of-scope list is answered as out of scope. No filesystem path, URL or shell string is built
+   from it.
+3b. **Generated Markdown is not user-controlled.** `/api/report` renders the *engine's* numbers
+   and the module-level provenance/limitation tables. Request parameters are bounded numerics and
+   closed vocabularies, so the memo cannot be steered to include arbitrary text; it is served as
+   `text/markdown` with `Content-Disposition` only when `download=true`.
 4. **CORS is an allow-list.** Origins are limited to the dev-server origins
    (`http://localhost:5173`, `http://127.0.0.1:5173`), methods to `GET, POST`, and headers to
    `Content-Type` (finding **H1**, fixed — it was `*`).

@@ -21,3 +21,12 @@ from .hazard import (  # noqa: F401
 from .epistemics import classify, coverage, evidence_pressure_range  # noqa: F401
 from .similarity import similarity, rank_experiments  # noqa: F401
 from .pareto import pareto_front, weighted_score  # noqa: F401
+from .backtest import leave_one_out, FIT_ANCHOR_IDS  # noqa: F401
+from .records import (  # noqa: F401
+    KIND_EXPERIMENT,
+    KIND_LABELS,
+    annotate,
+    partition,
+    record_kind,
+)
+from .intents import Atmosphere, compose, route  # noqa: F401

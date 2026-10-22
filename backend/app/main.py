@@ -3,12 +3,15 @@
 Endpoints:
   GET  /api/scenario        hazard vector + evidence for one atmosphere state
   GET  /api/tradespace      P x O2 grid with LOC boundary + coverage layer
+  GET  /api/flame           flame regime, fire-front fate and the ug-vs-1g
+                            crossover behind the 3D Freefall Lab screen
   GET  /api/experiments     ranked experiments for a query
   POST /api/ask             engine-grounded answer with server-verified citations
-                            (deterministic; no language model is called)
+                            (deterministic question router; no language model is called)
   GET  /api/pareto          candidate set + Pareto frontier + weighted ranking
   POST /api/counterfactual  before/after deltas for dO2 / dflow
   GET  /api/validate        leave-out backtest of the engine against the DB
+  GET  /api/report          one-page Markdown decision memo for one atmosphere
   GET  /api/methodology     known limitations, future work, provenance
   GET  /api/health
 """
@@ -16,13 +19,12 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from backend.data import load_experiments
 from backend.engine import (
-    effective_loc,
     hazard_vector,
     loc_percent,
     pareto_front,
@@ -30,10 +32,17 @@ from backend.engine import (
     weighted_score,
 )
 from backend.app.methodology import methodology_payload
+from backend.app.report import build_report
+from backend.engine.backtest import leave_one_out
 from backend.engine.citations import verify_citations
 from backend.engine.epistemics import classify, coverage
+from backend.engine.flame import flame_payload
 from backend.engine.hazard import MATERIAL_CLASSES
+from backend.engine.intents import Atmosphere, compose as compose_answer
+from backend.engine.missions import missions_payload, scenario_payload
 from backend.engine.loc import P_ENVELOPE_KPA, epistemic_flag_for_pressure
+from backend.engine.records import annotate as annotate_records
+from backend.engine.records import partition
 
 app = FastAPI(title="FLARE API", version="1.0.0")
 app.add_middleware(
@@ -84,6 +93,19 @@ def methodology() -> dict[str, Any]:
     return methodology_payload()
 
 
+@app.get("/api/missions")
+def missions() -> dict[str, Any]:
+    """Mission flight scenarios (real-hardware presets), fully evaluated.
+
+    Every entry carries the engine's hazard vector for THE SCENARIO and for a
+    1g ground-lab twin at the same non-gravity parameters, plus the deltas —
+    the µg-vs-1g risk delta the test engineer asks for, computed by the engine
+    rather than hand-written. Preset parameters only; no fire quantity is
+    hard-coded here.
+    """
+    return missions_payload()
+
+
 @app.get("/api/scenario")
 def scenario(
     pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
@@ -98,7 +120,9 @@ def scenario(
                         material_class)
     label = classify(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
     cov = coverage(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
-    ranked = rank_experiments(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
+    ranked = annotate_records(
+        rank_experiments(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
+    )
     return {
         "inputs": {
             "pressure_psia": pressure_psia,
@@ -162,17 +186,59 @@ def tradespace(
             "flag": "INTERPOLATED" if inside else "EXTRAPOLATED",
         })
 
+    # Comparison grid for the Freefall Lab's 1g ghost surface: the SAME ignition
+    # field computed at 1g. Included only when the requested gravity is not 1g
+    # itself; it is the µg-vs-1g delta the Freefall Lab is about. Same engine,
+    # same modifiers — the only change is the gravity term.
+    ghost_grid: list[list[dict[str, Any]]] | None = None
+    if gravity != "earth":
+        ghost_grid = []
+        for p in ps:
+            row = []
+            for o2 in o2s:
+                vec = hazard_vector(p, o2, "earth", flow_ms, temperature_c,
+                                    material_class)
+                # The ghost surface is drawn BELOW the µg surface, so a viewer
+                # sees two translucent sheets and the LOC separation between
+                # them; the vertical offset is declared in the UI (\"drawn -2
+                # ignition points below\") and is presentation-only.
+                row.append({"ignition": vec["ignition"],
+                            "height_offset_pct": -2.0})
+            ghost_grid.append(row)
+
     return {
         "p_psia": [round(p, 3) for p in ps],
         "o2_pct": [round(o, 2) for o in o2s],
         "grid": grid,
         "loc_boundary": boundary,
+        "ghost_grid_1g": ghost_grid,
         "crew_band": {"po2_min_psia": 2.4, "po2_max_psia": 3.4},
         # Coverage envelope on the P axis. The frontend hatches the region
         # outside it instead of colouring it, so no pixel is coloured where
         # NASA has no measurement (dossier §4.7 L2).
         "p_envelope_kpa": [P_ENVELOPE_KPA[0], P_ENVELOPE_KPA[1]],
     }
+
+
+@app.get("/api/flame")
+def flame(
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    o2_pct: float = Query(34.0, ge=0.0, le=100.0),
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
+) -> dict[str, Any]:
+    """Flame regime, front fate and the microgravity-vs-1g crossover.
+
+    Everything the 3D Freefall Lab screen draws comes from here, so the
+    animation cannot show a behaviour the published model does not produce.
+    The sources for each qualitative statement travel with the payload
+    (dossier §4.2), and `front_speed_relative` is in relative units against the
+    Saffire-I reference condition rather than m/s.
+    """
+    return flame_payload(pressure_psia, o2_pct, gravity, flow_ms, temperature_c,
+                         material_class)
 
 
 @app.get("/api/experiments")
@@ -184,7 +250,14 @@ def experiments(
 ) -> dict[str, Any]:
     exps = load_experiments()
     ranked = rank_experiments(_kpa(pressure_psia), o2_pct, gravity, material_class, exps)
-    return {"count": len(ranked), "results": ranked}
+    annotated = annotate_records(ranked)
+    evidence, context = partition(annotated)
+    return {
+        "count": len(annotated),
+        "evidence_count": len(evidence),
+        "context_count": len(context),
+        "results": annotated,
+    }
 
 
 class AskRequest(BaseModel):
@@ -199,60 +272,51 @@ class AskRequest(BaseModel):
 
 @app.post("/api/ask")
 def ask(req: AskRequest) -> dict[str, Any]:
-    """Evidence-grounded answer.
+    """Evidence-grounded answer that is steered by the question.
 
-    The answer is composed deterministically from engine outputs and database
-    records. No language model is called: there is no LLM client in this
-    build and no API key is read anywhere in the backend. The `question` field
-    is accepted and echoed into the response for the client's convenience; it
-    does not currently steer the composition. An LLM narration layer on top of
-    this same engine-grounded payload is stated as future work in the
-    Methodology screen (dossier §4.7 F4).
+    The question is routed by an explicit keyword model (backend/engine/
+    intents.py) into an intent, and the intent decides which engine quantities
+    are computed and reported. No language model is called: there is no LLM
+    client in this build and no API key is read anywhere in the backend, so
+    every sentence is composed from engine outputs and database records. The
+    routing decision is returned in the payload (`intent`, `intent_matched`,
+    `intent_confidence`) so the user can see how the question was understood;
+    a question outside the engine's scope is answered as out of scope rather
+    than with a confident paragraph about something else.
 
-    Citations are verified against the database in code either way.
+    Only controlled combustion experiments are cited as supporting evidence;
+    specification and historical records are returned separately as context
+    (dossier §6.1). Citations are verified against the database in code.
     """
     exps = load_experiments()
-    ranked = rank_experiments(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
-                              req.material_class, exps)
-    top = ranked[:5]
-    vec = hazard_vector(req.pressure_psia, req.o2_pct, req.gravity, req.flow_ms,
-                        req.temperature_c, req.material_class)
-    label = classify(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
-                     req.material_class, exps)
-    cov = coverage(_kpa(req.pressure_psia), req.o2_pct, req.gravity,
-                   req.material_class, exps)
+    atm = Atmosphere(
+        pressure_psia=req.pressure_psia,
+        o2_pct=req.o2_pct,
+        gravity=req.gravity,
+        flow_ms=req.flow_ms,
+        temperature_c=req.temperature_c,
+        material_class=req.material_class,
+    )
+    result = compose_answer(req.question, atm, exps)
 
-    # Deterministic answer grounded in engine outputs + experiment records.
-    lines = [
-        f"At {req.pressure_psia} psia / {req.o2_pct}% O2 ({req.gravity}), "
-        f"the effective LOC boundary is {vec['effective_loc_pct']}% — the atmosphere "
-        f"sits {vec['margin_above_loc_pct']} percentage points "
-        f"{'above' if vec['margin_above_loc_pct'] >= 0 else 'below'} the boundary.",
-        f"Evidence classification: {label}; coverage {round(cov*100,1)}% "
-        f"({len(top)} closest experiments cited).",
-        f"Hazard vector: ignition {vec['ignition']}, spread {vec['spread']}, "
-        f"persistence {vec['persistence']}, heat release {vec['heat_release']}, "
-        f"extinction margin {vec['extinction_margin']}.",
-        f"Crew side: pO2 {vec['crew']['po2_psia']} psia "
-        f"({vec['crew']['normoxia_pct']}% of sea-level normoxia).",
-        "Key supporting experiments: "
-        + "; ".join(
-            f"{e['experiment_id']} ({e['mission']}, {e['o2_pct']}% O2 @ "
-            f"{e['pressure_kpa']} kPa, {e['verdict']})"
-            for e in top
-        ),
-    ]
-
-    cited_ids = [e["experiment_id"] for e in top]
-    check = verify_citations(cited_ids, {e["experiment_id"] for e in exps})
+    ids = {e["experiment_id"] for e in exps}
+    check = verify_citations(
+        list(result["citations"]) + list(result["context_citations"]), ids
+    )
 
     return {
         "question": req.question,
-        "answer": "\n\n".join(lines),
-        "citations": check["valid"],
+        "intent": result["intent"],
+        "intent_matched": result["intent_matched"],
+        "intent_confidence": result["intent_confidence"],
+        "answer": result["answer"],
+        "citations": result["citations"],
+        "context_citations": result["context_citations"],
+        "context_kinds": result["context_kinds"],
+        "suggested_questions": result["suggested_questions"],
         "fabricated_citations": check["fabricated"],
         "citation_check_ok": check["ok"],
-        "engine_summary": vec,
+        "engine_summary": result["engine_summary"],
         "mode": "offline-deterministic",
     }
 
@@ -265,7 +329,15 @@ def pareto(
     temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
     material_class: MaterialClass = "polymer",
 ) -> dict[str, Any]:
-    """Candidate atmospheres -> hazard vs crew/EVA benefit -> frontier."""
+    """Candidate atmospheres -> hazard vs crew/EVA benefit -> frontier.
+
+    A-F are the design points a mission architect actually trades (plus the
+    Exploration Atmosphere and a 1 atm baseline). G and H are the deliberate
+    control pair: the same pressure, 21% vs 28% O2 — the 28% option buys no EVA
+    benefit at all and only raises fire hazard, so H is dominated by G and the
+    frontier is shown excluding it rather than presenting seven equally valid
+    options (dossier §4.7 L4: this is a comparison, not a ranking of winners).
+    """
     candidates_def = [
         {"id": "A", "p": 8.2, "o2": 34.0},
         {"id": "B", "p": 9.0, "o2": 31.0},
@@ -273,6 +345,8 @@ def pareto(
         {"id": "D", "p": 10.5, "o2": 26.0},
         {"id": "E", "p": 7.5, "o2": 40.0},
         {"id": "F", "p": 14.7, "o2": 21.0},
+        {"id": "G", "p": 12.0, "o2": 21.0},
+        {"id": "H", "p": 12.0, "o2": 28.0},
     ]
     cands = []
     for c in candidates_def:
@@ -336,65 +410,34 @@ def validate() -> dict[str, Any]:
     Reported with NASA-grade honesty: misses get explanations. Misses on
     records that are FIT ANCHORS of the boundary are expected (the boundary
     was constructed from them — a near-tie classification there is not
-    generalization evidence either way).
+    generalization evidence either way). The backtest lives in the engine
+    (backend/engine/backtest.py) so the endpoint and the composed answers read
+    the same implementation.
     """
-    exps = load_experiments()
-    usable = [e for e in exps
-              if e["verdict"] in ("spread", "self-extinguish")
-              and e["outcome_type"] in ("flame_spread", "flammability_limit")]
-    anchor_ids = {"LOC-PRESSURE-TREND-01", "LOC-PRESSURE-TREND-02",
-                  "LOC-1G-101KPA-01"}  # fitted anchors of LOC(P) v2
-    results = []
-    correct = 0
-    for e in usable:
-        others = [x for x in usable if x["experiment_id"] != e["experiment_id"]]
-        loc_eff = effective_loc(e["pressure_kpa"], e["gravity"], e["flow_ms"])
-        margin = e["o2_pct"] - loc_eff
-        predicted = "spread" if margin > 0 else "self-extinguish"
-        hit = predicted == e["verdict"]
-        correct += hit
-        explanation = None
-        if not hit:
-            if e["experiment_id"] in anchor_ids:
-                explanation = (
-                    "Fit anchor of the LOC(P) curve: a miss here reflects the "
-                    "anchor's position relative to the least-squares trend, not "
-                    "a generalization failure. Retained to show anchor behavior "
-                    "openly."
-                )
-            elif abs(margin) < 1.5:
-                explanation = (
-                    f"Near-boundary case (margin {round(margin,2)} pt): within the "
-                    "model's stated uncertainty band for a 2-parameter fit."
-                )
-            elif e["experiment_id"] == "SAFFIRE-II-05":
-                explanation = (
-                    "Sample-card record: thin samples in the 9-sample card "
-                    "extinguish for geometry reasons the class-level model "
-                    "does not resolve (known limitation #1)."
-                )
-            else:
-                explanation = "Outside the model's calibrated regime; documented as a known miss."
-        results.append({
-            "experiment_id": e["experiment_id"],
-            "mission": e["mission"],
-            "conditions": f"{e['o2_pct']}% O2 @ {e['pressure_kpa']} kPa, {e['gravity']}, {e['flow_ms']} m/s",
-            "observed": e["verdict"],
-            "predicted": predicted,
-            "margin_pct": round(margin, 2),
-            "is_fit_anchor": e["experiment_id"] in anchor_ids,
-            "correct": hit,
-            "explanation": explanation,
-        })
-    n = len(results)
-    non_anchor = [r for r in results if not r["is_fit_anchor"]]
-    return {
-        "method": "leave-one-out on LOC boundary classification",
-        "total": n,
-        "correct": correct,
-        "accuracy": round(correct / n, 3) if n else None,
-        "accuracy_non_anchor": round(
-            sum(1 for r in non_anchor if r["correct"]) / len(non_anchor), 3
-        ) if non_anchor else None,
-        "results": results,
-    }
+    return leave_one_out(load_experiments())
+
+
+@app.get("/api/report")
+def report(
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    o2_pct: float = Query(34.0, ge=0.0, le=100.0),
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
+    download: bool = Query(False),
+) -> Response:
+    """One-page Markdown decision memo for this atmosphere.
+
+    Every figure comes from the same engine functions the other endpoints use;
+    the memo adds no numbers of its own. `download=true` sets a
+    Content-Disposition header so the client can save it as a file.
+    """
+    body = build_report(pressure_psia, o2_pct, gravity, flow_ms, temperature_c,
+                        material_class)
+    headers = {}
+    if download:
+        name = (f"flare-memo-{pressure_psia:g}psia-{o2_pct:g}pct-{gravity}-{material_class}.md")
+        headers["Content-Disposition"] = f'attachment; filename="{name}"'
+    return Response(content=body, media_type="text/markdown; charset=utf-8",
+                    headers=headers)

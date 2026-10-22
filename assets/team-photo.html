@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FLARE — team photo</title>
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { background: #10182b; }
+  .stage {
+    width: 1200px; height: 900px; position: relative; overflow: hidden;
+    background:
+      radial-gradient(900px 500px at 85% -10%, #1c2a4d 0%, transparent 60%),
+      radial-gradient(700px 420px at 5% 110%, #26102a 0%, transparent 60%),
+      linear-gradient(160deg, #0b1220 0%, #101a2e 55%, #0c1120 100%);
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #e8eefc;
+  }
+  /* starfield */
+  .stars { position: absolute; inset: 0; }
+  .s { position: absolute; border-radius: 50%; background: #cfe1ff; opacity: .55; }
+
+  /* corner ticks (project's panel language) */
+  .tick { position: absolute; width: 34px; height: 34px; border-color: #3d4f7d; border-style: solid; }
+  .tl { top: 28px; left: 28px;  border-width: 2px 0 0 2px; }
+  .tr { top: 28px; right: 28px; border-width: 2px 2px 0 0; }
+  .bl { bottom: 28px; left: 28px;  border-width: 0 0 2px 2px; }
+  .br { bottom: 28px; right: 28px; border-width: 0 2px 2px 0; }
+
+  .content {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 90px 80px;
+  }
+  .eyebrow {
+    font-size: 21px; letter-spacing: .38em; text-transform: uppercase;
+    color: #8fa7d8; font-weight: 600; margin-bottom: 34px;
+  }
+  .mark { display: flex; align-items: flex-end; gap: 26px; margin-bottom: 26px; }
+  .flame { height: 132px; }
+  h1 { font-size: 150px; font-weight: 800; letter-spacing: .045em; line-height: .95;
+       background: linear-gradient(100deg, #ffd28a 0%, #ff9a5a 45%, #f2634f 100%);
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { font-size: 35px; color: #c8d6f2; margin-top: 6px; font-weight: 500; }
+  .tag { font-size: 22px; color: #93a5cc; margin-top: 22px; line-height: 1.5; max-width: 940px; }
+  .tag b { color: #d7e2f7; font-weight: 600; }
+
+  .chips { display: flex; gap: 12px; margin-top: 44px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    font-size: 18px; padding: 10px 20px; border-radius: 999px;
+    border: 1px solid #33456f; color: #b9c9ea; background: rgba(28, 41, 74, .55);
+  }
+  .chip.hot { border-color: #8a4a35; color: #ffc08a; background: rgba(74, 34, 22, .45); }
+
+  .foot {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 8px;
+    background: linear-gradient(90deg, #ffdd9a, #ff8a4d 40%, #b24a3f 75%, #274a8f 100%);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stars" id="stars"></div>
+  <div class="tick tl"></div><div class="tick tr"></div>
+  <div class="tick bl"></div><div class="tick br"></div>
+
+  <div class="content">
+    <div class="eyebrow">NASA Space Apps 2026 &middot; Universal Event</div>
+
+    <div class="mark">
+      <svg class="flame" viewBox="0 0 64 132" fill="none">
+        <defs>
+          <linearGradient id="fg" x1="0" y1="132" x2="0" y2="0">
+            <stop offset="0" stop-color="#f2634f"/><stop offset=".55" stop-color="#ff9a5a"/><stop offset="1" stop-color="#ffdd9a"/>
+          </linearGradient>
+          <linearGradient id="fg2" x1="0" y1="132" x2="0" y2="0">
+            <stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#fff2cc"/>
+          </linearGradient>
+        </defs>
+        <path d="M32 4 C50 34 62 56 62 84 c0 26-13 44-30 44 S2 110 2 84 c0-18 6-30 14-42 3 10 8 16 14 18 -4-22 2-40 2-56z" fill="url(#fg)"/>
+        <path d="M32 58 c10 16 16 28 16 42 0 15-7 26-16 26 s-16-11-16-26 c0-9 4-17 9-24 2 5 5 8 9 10 -3-10 1-20-2-28z" fill="url(#fg2)" opacity=".85"/>
+      </svg>
+      <h1>FLARE</h1>
+      <svg class="flame" viewBox="0 0 64 132" fill="none" style="transform: rotate(8deg); opacity:.9;">
+        <defs>
+          <linearGradient id="fg2" x1="0" y1="132" x2="0" y2="0">
+            <stop offset="0" stop-color="#ffb347"/><stop offset="1" stop-color="#fff2cc"/>
+          </linearGradient>
+        </defs>
+        <path d="M32 4 C50 34 62 56 62 84 c0 26-13 44-30 44 S2 110 2 84 c0-18 6-30 14-42 3 10 8 16 14 18 -4-22 2-40 2-56z" fill="url(#fg2)"/>
+      </svg>
+    </div>
+
+    <div class="sub">Fire &amp; Life Atmosphere Risk Explorer</div>
+    <p class="tag">
+      Decision-support for <b>spacecraft &amp; habitat atmospheres</b> — built on the
+      <b>“Flame in Freefall”</b> challenge. Risks, margins and evidence confidence,
+      traced to NASA's microgravity combustion record.
+    </p>
+
+    <div class="chips">
+      <span class="chip hot">95 tests passing</span>
+      <span class="chip">Python &middot; FastAPI</span>
+      <span class="chip">React &middot; TypeScript</span>
+      <span class="chip">d3 &middot; Three.js</span>
+      <span class="chip">Evidence &ge; claims</span>
+    </div>
+  </div>
+
+  <div class="foot"></div>
+</div>
+
+<script>
+  // deterministic starfield
+  const box = document.getElementById('stars');
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 130; i++) {
+    const d = document.createElement('div');
+    d.className = 's';
+    const r = rnd() * 2.2 + 0.6;
+    d.style.width = r + 'px'; d.style.height = r + 'px';
+    d.style.left = (rnd() * 100) + '%';
+    d.style.top = (rnd() * 100) + '%';
+    d.style.opacity = 0.25 + rnd() * 0.5;
+    box.appendChild(d);
+  }
+</script>
+</body>
+</html>
