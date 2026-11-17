@@ -1,0 +1,3 @@
+# Runtime dependencies for serverless hosting (Vercel / any preset-based
+# Python host). Dev and test extras live in backend/requirements.txt.
+fastapi==0.115.0

@@ -3,6 +3,21 @@
 **Fire & Life Atmosphere Risk Explorer**
 NASA Space Apps Challenge · challenge: *"Flame in Freefall"* — making fire safety visible for space missions.
 
+## 0. Where to run it
+
+FLARE is **one process behind one URL** — the FastAPI app serves both `/api/*` and the
+built React console (`backend/app/static_site.py`), so there is no second service, no CORS
+and nothing to configure at judging time.
+
+| Path | What a reviewer does |
+|---|---|
+| Public demo | [Deploy to Render](https://render.com/deploy?repo=https://github.com/Amertos/FLARE) — sign in with GitHub or Google, free plan (spins down after 15 min idle, ~50 s cold start) |
+| Vercel | [Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/Amertos/FLARE) |
+| Locally, one command | `make demo` → <http://localhost:8000> |
+| Docker | `docker build -t flare . && docker run -p 8000:8000 flare` |
+
+All four run the shipped code: no demo mode, no mocked data, no reduced build.
+
 **One line:** give FLARE any cabin atmosphere (pressure, O₂, gravity, airflow, temperature, material) and it shows what NASA's microgravity combustion record implies about fire spread and crew physiology, how confident each statement is, and — visibly — where the experimental evidence ends.
 
 ---
@@ -114,8 +129,9 @@ Full list: `py -m uvicorn … ` → **Methodology** screen, or `/api/methodology
 
 ## 8. Submission checklist (fill in at submission time)
 
-- [ ] Team name / members and the project URL
+- [ ] Team name / members and the project URL (the deployed URL from §0)
 - [ ] Demo video link — script in [demo-script.md](demo-script.md)
-- [ ] Repository link (this repo) — public
-- [ ] Challenge selected: *Flame in Freefall*
+- [x] Repository link (this repo) — public
+- [x] Challenge selected: *Flame in Freefall*
 - [ ] Optional: recorded live-demo backup for venue network failure (the app runs entirely offline: no language model, no outbound call at request time)
+- [ ] Deploy once from §0 and click through the eight tabs on the public URL before submitting

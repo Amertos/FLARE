@@ -16,6 +16,7 @@ Endpoints:
   GET  /api/report          one-page Markdown decision memo for one atmosphere
   GET  /api/methodology     known limitations, future work, provenance
   GET  /api/health
+  GET  /                    the built React console (when frontend/dist exists)
 """
 from __future__ import annotations
 
@@ -513,3 +514,11 @@ def report(
         headers["Content-Disposition"] = f'attachment; filename="{name}"'
     return Response(content=body, media_type="text/markdown; charset=utf-8",
                     headers=headers)
+
+
+# Last, so every API route above keeps precedence: the built UI is served from
+# this same origin (backend/app/static_site.py), which is what lets the demo run
+# as ONE process behind ONE URL on any Python host. No-op without a build.
+from backend.app.static_site import mount_static_site  # noqa: E402
+
+STATIC_DIR = mount_static_site(app)

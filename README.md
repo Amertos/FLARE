@@ -1,11 +1,34 @@
 # FLARE — Fire & Life Atmosphere Risk Explorer
 
+[![CI](https://github.com/Amertos/FLARE/actions/workflows/ci.yml/badge.svg)](https://github.com/Amertos/FLARE/actions/workflows/ci.yml)
+
 Decision-support system for spacecraft and habitat atmospheres, built for the
 **NASA Space Apps Challenge — "Flame in Freefall"**.
 
 Given an atmosphere state, FLARE answers: *what does NASA's microgravity combustion
 experimental record imply about fire behavior and crew physiology, how confident is each
 statement, and where does the experimental evidence end?*
+
+## Run it in one click
+
+FLARE ships as **one process behind one URL**: the FastAPI app serves `/api/*` *and*
+the built React console from the same origin (`backend/app/static_site.py`), so there is
+no second service and no CORS to configure.
+
+| Path | What to do |
+|---|---|
+| **Public demo** | [Deploy to Render](https://render.com/deploy?repo=https://github.com/Amertos/FLARE) — sign in with GitHub or Google, one web service on the free plan (cold start after 15 min idle) |
+| **Vercel** | [Deploy with Vercel](https://vercel.com/new/clone?repository-url=https://github.com/Amertos/FLARE) — `vercel.json` builds the UI and bundles the engine with the function |
+| **Local, one command** | `make demo` → <http://localhost:8000> |
+| **Docker** | `docker build -t flare . && docker run -p 8000:8000 flare` |
+
+All four run the same code: no demo mode, no mocked data, no cut-down build.
+
+## Screens
+
+| Trade Space | Freefall Lab | Evidence Explorer |
+|---|---|---|
+| ![Trade Space — hazard map, LOC boundary, kernel KPIs](docs/images/trade-space.png) | ![Freefall Lab — 3D hazard surface and flame chamber](docs/images/freefall-lab.png) | ![Evidence Explorer — ranked experiments with sources](docs/images/evidence.png) |
 
 ## How it works — diagrams
 
@@ -321,7 +344,13 @@ npm run dev        # dev server
 npm run build      # production build
 ```
 
-Tests (128 currently):
+Whole product on one port (builds the UI, then serves API + UI from one process):
+
+```bash
+make demo          # http://localhost:8000
+```
+
+Tests (131 currently):
 
 ```bash
 py -m pytest backend/tests -q

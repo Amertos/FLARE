@@ -1,0 +1,4 @@
+# Vercel entrypoint override: the FastAPI app lives in a module that the
+# FastAPI preset does not scan (it looks at the repo root, src/ and app/).
+[tool.vercel]
+entrypoint = "backend.app.main:app"

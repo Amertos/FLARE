@@ -1,0 +1,11 @@
+# Deploy FLARE as ONE web service (API + built UI on the same origin).
+# Render dashboard -> New -> Blueprint -> this repository, or open
+# https://render.com/deploy?repo=https://github.com/Amertos/FLARE
+services:
+  - type: web
+    name: flare
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true

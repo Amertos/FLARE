@@ -1,0 +1,11 @@
+.git
+.gitignore
+.github
+node_modules
+frontend/node_modules
+frontend/dist
+screenshots
+.scratch
+__pycache__
+.pytest_cache
+*.log
