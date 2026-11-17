@@ -1,6 +1,7 @@
 # FLARE — 4-Minute Demo Script
 
-> Total: 4 minutes. Rehearse 5×. Backup video recorded separately. The app runs fully
+> Total: ~4½ minutes with the Design Search step; it drops to 4:00 if you cut the memo step.
+> Rehearse 5×. Backup video recorded separately. The app runs fully
 > offline (no language model, no outbound call at request time) if venue Wi-Fi dies.
 
 **Before you start:** backend on `http://127.0.0.1:8787`, UI on `http://127.0.0.1:5173`,
@@ -40,26 +41,35 @@ link you can hand to a judge.
    pixels where NASA has no measurements — and the known-limitations list is served by the
    engine, so the interface cannot claim more than the model does."
 
-5. **Ask FLARE (45s).** Click **Ask FLARE**, press the starter
+5. **Does ANY atmosphere work? (25s).** Open **Design Search**. Point at the two curves: the
+   amber one is the oxygen the crew's 2.4 psia floor forces, the blue one is the boundary.
+   *"They cross at 13.7 psia. Below that, the air a crew needs is itself above the boundary —
+   at 8.2 psia the crew floor is 29.3% O₂ and the boundary is 18.9%. There is no breathing mix
+   that is fire-safe. At one atmosphere the window is 0.9 of an O₂ point — narrower than our
+   own stated uncertainty, so we call it nominal, not safe."* This is the question the map only
+   implies, answered in closed form by the engine.
+
+6. **Ask FLARE (45s).** Click **Ask FLARE**, press the starter
    *"Which experiments support this atmosphere?"* Point at the routing line:
    `route: evidence_coverage · matched "which experiments" · confidence 0.85`. "The question
    steers the answer — deterministically. No language model is called; the router is
-   inspectable." Then click the **📄 LOC-UG-60KPA-01** chip: the app jumps to Evidence with
+   inspectable." Then click the **📄 LOC-UG-101KPA-01** chip: the app jumps to Evidence with
    that record open and highlighted. Note the *context* chips below it: the Exploration
    Atmosphere specification and the Apollo 1 historical reference, labelled as carrying no
    combustion verdict, because we do not present a specification as fire evidence.
 
-6. **The Pareto close (30s).** Open **Candidate atmospheres**. Move the fire-safety weight
+7. **The Pareto close (30s).** Open **Candidate atmospheres**. Move the fire-safety weight
    slider: the leader changes hands and the frontier stays marked. Point at the control pair —
    12 psia / 21% vs 12 psia / 28% O₂: *same pressure, so zero EVA benefit from the extra
    oxygen, and it is shown as dominated.* "FLARE never says which atmosphere is best. It
    shows the trade."
 
-7. **Graded, not claimed (20s).** Open **Validation**. "Our engine is graded against NASA's
-   own held-out experiments — 7 of 12, 77.8% excluding the curve's own fit anchors, with every
+8. **Graded, not claimed (20s).** Open **Validation**. "Our engine is graded against NASA's
+   own held-out experiments — 14 of 18, 93.3% excluding the curve's own fit anchors (77.8%
+   overall), with every
    miss explained. We publish our accuracy and our failures."
 
-8. **The artifact (10s).** Click **⬇ Export memo**. Open the downloaded file: state, evidence
+9. **The artifact (10s) — first to cut if the clock is tight.** Click **⬇ Export memo**. Open the downloaded file: state, evidence
    label, hazard vector, boundary derivation, crew side, cited sources, sensitivity sweep,
    backtest, limitations — one page a reviewer can file. "Every number, and every caveat about
    that number, in one artifact."

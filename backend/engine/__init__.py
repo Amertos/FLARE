@@ -30,3 +30,8 @@ from .records import (  # noqa: F401
     record_kind,
 )
 from .intents import Atmosphere, compose, route  # noqa: F401
+from .design import (  # noqa: F401
+    crew_floor_o2_pct,
+    crossover_pressure_psia,
+    design_search_payload,
+)

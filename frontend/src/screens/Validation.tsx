@@ -18,7 +18,7 @@ export default function Validation() {
   return (
     <div className="space-y-4 screen-enter">
       <ScreenHeader
-        eyebrow="Screen 5 · The grade"
+        eyebrow="Screen 7 · The grade"
         title="Validation — graded, not claimed"
         lede="The engine is graded against NASA's own held-out experiments, with every miss explained and the backtest reproducible from the shipped test suite. We publish our accuracy and our failures."
       />

@@ -13,14 +13,16 @@ backend/
     similarity.py          experiment-to-query similarity ranking
     citations.py           server-side citation verification
   data/experiments.json    curated seed database (20 NTRS-referenced records)
+    countermoves.py        ranked fire-safety levers per atmosphere state
   app/main.py              FastAPI: /api/scenario /api/tradespace /api/experiments
                            /api/ask /api/pareto /api/counterfactual /api/validate
-                           /api/methodology /api/health
+                           /api/countermoves /api/design-search /api/methodology
+                           /api/health
   app/methodology.py       known limitations + future work + provenance, served to the UI
   tools/                   reproduce_dossier_log.py — regenerates dossier §6
   tests/                   engine + API tests (assert the dossier values)
 frontend/
-  src/screens/             TradeSpace, EvidenceExplorer, AIScientist, Validation, Methodology
+  src/screens/             TradeSpace, Countermoves, DesignSearch, Freefall, EvidenceExplorer, AIScientist, Validation, Methodology
   src/api.ts               typed REST client
 LICENSE
 README.md
@@ -29,10 +31,10 @@ README.md
 ## Build order (approved plan)
 1. **Phase 0 — dossier** (done first): `docs/SCIENTIFIC-VALIDATION-DOSSIER.md`
 2. **Phase 1 — engine + tests:** pure Python science layer; unit tests assert the exact values proven in the dossier (LOC anchors, epistemic labels, pO₂, Pareto, similarity, citation verification).
-3. **Phase 2 — seed data:** 20-record experiment database, every record NTRS-referenced.
+3. **Phase 2 — seed data:** 20-record experiment database, every record NTRS-referenced (grown to 26 records in the review pass, including the BASS-II/ISS ambient-µG LOC record and the reduced-pressure 1g PMMA pair).
 4. **Phase 3 — API:** FastAPI endpoints over the engine + JSON database.
 5. **Phase 4 — frontend** (done): 5 screens — D3 trade-space with LOC boundary and hatched extrapolation regions, evidence cards, engine-grounded answer panel (deterministic; no LLM is called), validation panel, methodology panel.
-6. **Phase 5 — verification** (done): engine + API tests green (`py -m pytest backend/tests -q`, 95 tests), dossier §6 log regenerated from the shipped code, API smoke-tested, frontend built, live browser check of every screen.
+6. **Phase 5 — verification** (done): engine + API tests green (`py -m pytest backend/tests -q`, 128 tests), dossier §6 log regenerated from the shipped code, API smoke-tested, frontend built, live browser check of every screen.
 7. **Phase 6 — security pass** (done): input contract, CORS allow-list, CI least privilege, secret and primitive scans, dependency audit. Two findings fixed; accepted risks stated in [SECURITY-NOTES.md](SECURITY-NOTES.md).
 8. **Phase 7 — submission hardening** (done): the items below under "Phase 7", all verified against the running product rather than the build log alone.
 
@@ -78,6 +80,18 @@ where it changes a claim:
     renders its output, three.js loads as its own chunk, and `?no3d=1` degrades the screen to
     numbers. Scope gate met without weakening any earlier claim: the 3D is labelled a schematic
     of published regimes, not a CFD solution (limitation L8).
+
+18. **Design Search** (`engine/design.py`, `/api/design-search`, `screens/DesignSearch.tsx`):
+    the inverse of the trade-space question. For every cabin pressure it computes the O₂
+    fraction the crew's pO₂ floor forces and the effective boundary at that pressure, and it
+    solves the crossing in closed form rather than by scanning a grid (both sides are
+    `a + b/P`, so the crossing is `(100·pO₂_min − b)/a`). The result is a design statement the
+    rest of the product only implies: at 8.2 psia the crew floor is 10.3 O₂ points **above**
+    the boundary, so no breathable mix is fire-safe; the widest calibrated window at 1 atm is
+    0.92 point at 14.6 psia, narrower than the fit's own ±1.5 pt uncertainty and therefore
+    reported as nominal. One small correctness fix came with it: the flag now tolerates one 0.1 psia UI
+    step at the envelope edge, so station air (14.7 psia = 101.35 kPa) is no longer labelled
+    extrapolation.
 
 ## Scope gates
 - MVP gate: Trade Space + Evidence Explorer + engine = submittable. **Met.**

@@ -75,7 +75,8 @@ def test_bass_ii_04_classification():
 
 
 def test_loc_held_out_spread_classification():
-    # 19.8% O2 @ 60 kPa observed spread; boundary is 17.0 -> above -> spread
+    # LOC(engine) @ 60 kPa is 19.22; an atmosphere of 19.8% O2 sits above it
+    # -> spread predicted, matching the verified spread band at reduced pressure
     assert 19.8 > loc_percent(60.0)
 
 
@@ -97,12 +98,19 @@ def test_effective_loc_extrapolated_flag():
 def test_epistemic_pressure_axis():
     exps = load_experiments()
     # 55 kPa @ 16.5% O2: inside envelope; nearest records (50 kPa/20%,
-    # 60 kPa/17% µg) fall outside tolerance on O2 or gravity -> INTERPOLATED
+    # 60 kPa/21% 1g, 101.3 kPa/17% µg) fall outside tolerance on O2 or gravity
+    # -> INTERPOLATED
     assert classify(55.0, 16.5, "earth", "polymer", exps) == "INTERPOLATED"
     # 80 kPa @ 19%: inside envelope, no record within tolerance -> INTERPOLATED
     assert classify(80.0, 19.0, "earth", "polymer", exps) == "INTERPOLATED"
-    # 34.5 kPa: outside envelope -> EXTRAPOLATED
-    assert classify(34.5, 20.0, "earth", "polymer", exps) == "EXTRAPOLATED"
+    # 34.5 kPa: outside the curve envelope, but the 1g 40 kPa PMMA record
+    # (Thomsen 2019, added in the DB-growth pass) is within ±8 kPa / ±2.5 O2 on
+    # the same gravity and material class -> the evidence label is OBSERVED.
+    # The curve envelope and the evidence label stay knowingly distinct (§5).
+    assert classify(34.5, 20.0, "earth", "polymer", exps) == "OBSERVED"
+    # 25 kPa: no record within 8 kPa of it -> outside record range on an axis
+    # -> EXTRAPOLATED
+    assert classify(25.0, 20.0, "earth", "polymer", exps) == "EXTRAPOLATED"
     # 120 kPa: outside envelope -> EXTRAPOLATED
     assert classify(120.0, 20.0, "earth", "polymer", exps) == "EXTRAPOLATED"
     # 50 kPa @ 20%: exactly the LOC-PRESSURE-TREND-02 record -> OBSERVED
@@ -183,7 +191,7 @@ def test_loc_envelope_and_record_range_are_distinct():
     from backend.engine import evidence_pressure_range
     from backend.engine.loc import P_ENVELOPE_KPA
     exps = load_experiments()
-    assert evidence_pressure_range(exps) == (50.0, 115.1)
+    assert evidence_pressure_range(exps) == (40.0, 115.1)
     assert P_ENVELOPE_KPA == (50.0, 101.3)
     assert evidence_pressure_range(exps)[1] > P_ENVELOPE_KPA[1]
 

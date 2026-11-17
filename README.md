@@ -35,7 +35,7 @@ Every figure below is inline SVG — renders on github.com with no image asset, 
   <!-- node: React console -->
   <rect x="40" y="112" width="172" height="56" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
   <text x="126" y="136" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist',sans-serif" text-anchor="middle">React console</text>
-  <text x="126" y="152" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">6 screens · d3 · three.js</text>
+  <text x="126" y="152" fill="#4f5d75" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">8 screens · d3 · three.js</text>
   <!-- node: FastAPI -->
   <rect x="316" y="112" width="144" height="56" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
   <text x="388" y="136" fill="#2d3142" font-size="12" font-weight="600" font-family="'Geist',sans-serif" text-anchor="middle">FastAPI app</text>
@@ -241,6 +241,12 @@ fire-equivalent, and the flammability boundary is set by molar O₂ against LOC 
   record. Runs offline with no LLM key — **no language model is called anywhere in this build**.
 - **Validation** — leave-one-out backtest of the engine against NASA's own held-out
   experiments, misses included with explanations.
+- **Countermoves** — ranked, engine-computed fire-safety levers for the current atmosphere
+  (cool cabin, material substitution, reduce microgravity airflow, trade O₂ down to the crew
+  floor): each lever reports its own before/after hazard vector and names the dossier-backed
+  quantity that produced its effect; levers the model cannot support in this regime are shown
+  not-applicable **with the reason**, never as a silent zero-delta. Directly answers the
+  challenge's "how do we reduce the fire risk" question without inventing a new model.
 - **Methodology** — the known-limitations list, the work that is deliberately *not* built,
   the model-governance rules and the data-provenance table, served from the engine so the
   product and the written record cannot drift apart.
@@ -290,7 +296,7 @@ backend/
   tools/                   reproduce_dossier_log.py — regenerates the published test log
   tests/                   engine + API + router + memo tests asserting the dossier values
 frontend/
-  src/screens/             TradeSpace, Freefall, EvidenceExplorer, AIScientist, Validation, Methodology
+  src/screens/             TradeSpace, Countermoves, DesignSearch, Freefall, EvidenceExplorer, AIScientist, Validation, Methodology
   src/viz/                 three.js + SVG views: hazard terrain, flame chamber, crossover chart
   src/api.ts               typed REST client
 .github/workflows/ci.yml   tests + dossier log + frontend build on every push
@@ -315,7 +321,7 @@ npm run dev        # dev server
 npm run build      # production build
 ```
 
-Tests (95 currently):
+Tests (128 currently):
 
 ```bash
 py -m pytest backend/tests -q

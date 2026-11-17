@@ -1,6 +1,6 @@
 # FLARE — convenience targets. Everything here is also a plain documented command
 # in README.md, so the project does not depend on `make` being installed.
-.PHONY: install test log api web build verify memo
+.PHONY: install test log api web build verify memo deploy
 
 install:            ## install backend + frontend dependencies
 	py -m pip install -r backend/requirements.txt
@@ -26,3 +26,6 @@ web:                ## run the UI dev server on :5173
 memo:               ## write the decision memo for the Exploration Atmosphere
 	curl -s "http://127.0.0.1:8787/api/report?pressure_psia=8.2&o2_pct=34&gravity=microgravity&material_class=polymer&download=true" -o flare-memo.md
 	@echo "wrote flare-memo.md"
+
+deploy:             ## deploy to Vercel production (VERCEL_TOKEN=... make deploy)
+	vercel --prod --yes --token "$(VERCEL_TOKEN)"

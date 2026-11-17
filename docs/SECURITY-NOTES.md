@@ -59,7 +59,7 @@ request input; the dataset path is a module constant (`backend/data/__init__.py`
 
 - **No authentication or authorisation.** Every endpoint is public by design; there is nothing
   user-specific to protect and nothing to write. Adding auth would protect nothing today.
-- **No rate limiting.** The service is pure CPU over a 20-record dataset and makes no outbound
+- **No rate limiting.** The service is pure CPU over a 26-record dataset and makes no outbound
   call, so a request cannot amplify or persist. A public deployment behind a real URL should add
   a limiter at the edge; that is a hosting decision, not a property of this code.
 - **CORS is not access control.** It restricts browsers only. A non-browser client ignores it.

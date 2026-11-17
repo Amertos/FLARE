@@ -1,6 +1,6 @@
 /** Shared chrome for the FLARE console: the panel shell every card uses and
  *  the intro block that opens every screen. Centralising them is what makes
- *  six independent screens read as one product.
+ *  eight independent screens read as one product.
  *
  *  Panels keep the CSS-side `.panel` surface (index.css) and add a title row:
  *  a corner accent glyph, the title, and an optional right-aligned hint. */
@@ -33,7 +33,7 @@ export function FlarePanel({
 }
 
 /** The intro block at the top of each screen: eyebrow, one-line title, and
- *  the lede paragraph. Same rhythm on all six screens. */
+ *  the lede paragraph. Same rhythm on all eight screens. */
 export function ScreenHeader({
   eyebrow,
   title,

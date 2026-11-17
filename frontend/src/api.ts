@@ -1,5 +1,8 @@
 // Typed FLARE API client.
-const BASE = "http://localhost:8787";
+// The deployed product serves the API same-origin through
+// api/index.py (vercel.json), so the production build talks to "" and needs
+// no CORS; local development still points at the uvicorn server on :8787.
+const BASE = import.meta.env.DEV ? "http://localhost:8787" : "";
 
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(`${BASE}${path}`);
@@ -194,6 +197,72 @@ export interface CounterfactualResponse {
   deltas: Record<string, number>; overall: string;
 }
 
+/** /api/countermoves — ranked, engine-computed fire-safety levers.
+ *
+ * Each lever's before/after summary is the engine's own vector projection; a
+ * lever the model does not support in this regime comes back `applicable:
+ * false` with the reason in `note`, never as a silent zero delta.
+ */
+export interface LeverVector {
+  ignition: number; spread: number; persistence: number;
+  heat_release: number; extinction_margin: number;
+  margin_above_loc_pct: number;
+  crew: { po2_psia: number; normoxia_pct: number; crew_safe: boolean };
+}
+
+export interface CountermovesLever {
+  id: string; title: string; action: string; applicable: boolean;
+  before: LeverVector; after: LeverVector;
+  delta: { ignition: number; spread: number; margin_above_loc_pct: number };
+  evidence_label: string; note: string;
+}
+
+export interface CountermovesResponse {
+  inputs: Record<string, unknown>;
+  baseline: LeverVector;
+  levers: CountermovesLever[];
+  ranked_ids: string[];
+  notes: string[];
+}
+
+/** /api/design-search — the inverse of the trade-space question.
+ *
+ * Each row is one cabin pressure: the O2 fraction the crew's pO2 floor forces,
+ * and the effective LOC boundary at that pressure. `window_pt` is the width of
+ * the breathable band that is ALSO below the boundary (0 when the crew floor is
+ * above it), and `status` says whether that band is usable, nominal (narrower
+ * than the model's own uncertainty), or absent. `crossover_psia` is solved in
+ * closed form server-side; the screen draws it, it does not compute it.
+ */
+export interface DesignSearchRow {
+  pressure_psia: number;
+  pressure_kpa: number;
+  crew_floor_o2_pct: number;
+  crew_ceiling_o2_pct: number;
+  loc_pct: number;
+  shortfall_pt: number;
+  window_pt: number;
+  ignition_at_floor: number;
+  flag: "INTERPOLATED" | "EXTRAPOLATED";
+  status: "usable_window" | "nominal_window" | "unavoidable_spread" | "outside_data";
+}
+
+export interface DesignSearchResponse {
+  inputs: Record<string, number | string>;
+  rows: DesignSearchRow[];
+  crossover_psia: number | null;
+  window: {
+    min_psia: number; max_psia: number;
+    inside_data_psia: [number, number] | null;
+  } | null;
+  best: DesignSearchRow;
+  current: DesignSearchRow | null;
+  verdict: "window_exists" | "no_window_in_range" | "no_fire_limit";
+  statement: string;
+  nominal_window_pt: number;
+  notes: string[];
+}
+
 /** Human-readable source label: the ID means different registries per type. */
 export function sourceLabel(e: Pick<Experiment, "source_type" | "source_id">): string {
   const kind =
@@ -242,4 +311,6 @@ export const api = {
   missions: () => get<MissionsResponse>("/api/missions"),
   counterfactual: (body: Record<string, unknown>) =>
     post<CounterfactualResponse>("/api/counterfactual", body),
+  countermoves: (q: string) => get<CountermovesResponse>(`/api/countermoves?${q}`),
+  designSearch: (q: string) => get<DesignSearchResponse>(`/api/design-search?${q}`),
 };

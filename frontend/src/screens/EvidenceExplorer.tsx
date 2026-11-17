@@ -83,7 +83,7 @@ export default function EvidenceExplorer({
   return (
     <div className="space-y-3 screen-enter">
       <ScreenHeader
-        eyebrow="Screen 3 · The data"
+        eyebrow="Screen 5 · The data"
         title="Evidence Explorer"
         lede="NASA experiments ranked by condition similarity to the current scenario. Every record links to its source — click a card for the full experimental conditions."
       />

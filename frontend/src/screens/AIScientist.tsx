@@ -53,7 +53,7 @@ export default function AIScientist({ query, onCite }: {
   return (
     <div className="screen-enter">
       <ScreenHeader
-        eyebrow="Screen 4 · The question"
+        eyebrow="Screen 6 · The question"
         title="Ask FLARE"
         lede="Questions are routed by an explicit keyword model into intents, and the intent decides which engine quantities the answer reports. No language model is called anywhere in this build — answers are composed from the deterministic engine, and every cited experiment is verified against the database in code."
       />

@@ -106,7 +106,7 @@ export default function Freefall({
   return (
     <div className="space-y-4 screen-enter">
       <ScreenHeader
-        eyebrow="Screen 2 · The physics"
+        eyebrow="Screen 4 · The physics"
         title="Freefall Lab — what fire looks like where there is no “up”"
         lede="The console answers how risky an atmosphere is. This screen answers the question crews ask first: what will the fire do? Every shape, colour and outcome below is either an engine output or a cited published result — the citation list is at the bottom, and it is the whole list."
         aside={

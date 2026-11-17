@@ -62,6 +62,21 @@ TEMP_OFFSET_CAP_PCT: Final[float] = 2.0
 # quantity -- see engine.epistemics.evidence_pressure_range.
 P_ENVELOPE_KPA: Final[tuple[float, float]] = (50.0, 101.3)
 
+# Requests arrive in psia and are converted, so a state that IS the anchor (one
+# atmosphere) can land a hair outside the stated bound: 14.7 psia = 101.353 kPa,
+# 0.053 kPa above the published 101.3 kPa anchor. The tolerance is one 0.1 psia
+# UI step (0.69 kPa) -- enough that station air is not labelled extrapolation,
+# far too small to let a genuinely out-of-envelope state through (110 kPa stays
+# EXTRAPOLATED). Applied to the flag only; P_ENVELOPE_KPA itself is unchanged so
+# the published envelope and the hatched map region still read 50-101.3.
+ENVELOPE_TOLERANCE_KPA: Final[float] = 0.7
+
+
+def inside_envelope(p_kpa: float) -> bool:
+    """True within one UI step of the calibrated pressure envelope."""
+    lo, hi = P_ENVELOPE_KPA
+    return lo - ENVELOPE_TOLERANCE_KPA <= p_kpa <= hi + ENVELOPE_TOLERANCE_KPA
+
 
 def loc_percent(p_kpa: float) -> float:
     """1g-ground LOC in % O2 as a function of total pressure in kPa."""
@@ -117,7 +132,4 @@ def effective_loc(p_kpa: float, gravity: str, flow_ms: float = 0.2,
 
 def epistemic_flag_for_pressure(p_kpa: float) -> str:
     """Whether the LOC value at this pressure is inside the data envelope."""
-    lo, hi = P_ENVELOPE_KPA
-    if p_kpa < lo or p_kpa > hi:
-        return "EXTRAPOLATED"
-    return "INTERPOLATED"
+    return "INTERPOLATED" if inside_envelope(p_kpa) else "EXTRAPOLATED"

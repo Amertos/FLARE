@@ -18,15 +18,17 @@ Those two axes do not move together. **10.0 psia / 30% O₂ and 7.5 psia / 40% O
 
 FLARE is that tool. It is deliberately a *decision-support* instrument, not a risk calculator and not a control system.
 
-## 2. What it does (six screens, all live)
+## 2. What it does (eight screens, all live)
 
 | Screen | What a reviewer can do |
 |---|---|
 | **Trade Space** | Pressure × O₂ map of ignition tendency with the LOC boundary (white line), the crew-safe pO₂ band, and the region outside NASA data coverage **hatched, never coloured**. Click anywhere to move the atmosphere. |
+| **Countermoves** | Four ranked, engine-computed fire-safety levers for the current atmosphere — cool the cabin, substitute a lower-representative-risk material class, reduce microgravity airflow, trade O₂ down to the crew-band floor. Every lever reports its own before/after hazard vector from the same engine as the map, names the dossier-backed quantity behind its effect, and a lever the model cannot support in this regime is shown not-applicable **with the reason**, never as a zero-delta recommendation. |
+| **Design Search** | The inverse of the map: for each cabin pressure, the O₂ fraction the crew's pO₂ floor forces, the effective boundary at that pressure, and whether a breathable mix can sit below it. The two curves are solved in closed form, so the crossing pressure is a number, not a drag of the eye — at 8.2 psia the crew floor is 29.3% O₂ against an 18.9% boundary, and the widest calibrated breathable fire-safe window is 0.92 O₂ points at 14.6 psia, narrower than the model's own uncertainty. |
 | **Candidate atmospheres** | Six-year-old spreadsheet thinking, replaced: candidate atmospheres scored on fire risk vs EVA benefit, with the Pareto frontier marked and a weight slider that changes which option leads. Includes a deliberate control pair (12 psia at 21% vs 28% O₂) where one option buys *no* EVA benefit and is shown as dominated. |
 | **Evidence** | The curated NASA record nearest the current state, each row labelled `experiment` / `historical` / `specification`, each linking to its real source (NTRS / PMC / journal / NASA History). |
-| **Ask FLARE** | Type a question; an explicit keyword router picks the intent (boundary, hazard components, crew physiology, evidence, comparison, material, flow, temperature, pressure, validation, what-if) and the answer is composed from engine outputs. Citation chips jump straight to the cited record. Out-of-scope questions are declared out of scope rather than narrated. |
-| **Validation** | Leave-one-out backtest of the engine against NASA's own experiments — including the five misses, each with an explanation. |
+| **Ask FLARE** | Type a question; an explicit keyword router picks the intent (boundary, hazard components, crew physiology, evidence, comparison, material, flow, temperature, pressure, validation, what-if, inverse design) and the answer is composed from engine outputs. Citation chips jump straight to the cited record. Out-of-scope questions are declared out of scope rather than narrated. |
+| **Validation** | Leave-one-out backtest of the engine against NASA's own experiments — including the four misses (three of them the curve's own fit anchors), each with an explanation. |
 | **Methodology** | The known-limitations list, what is deliberately *not* built, the model-governance rules and the provenance table — served by the engine (`/api/methodology`), so the product and the written record cannot drift apart. |
 | **Export memo** | Any atmosphere becomes a one-page Markdown decision memo: state, evidence label, hazard vector, boundary derivation, crew side, cited experiments with sources, sensitivity sweep, backtest summary, limitations, sources. |
 
@@ -37,7 +39,8 @@ FLARE is that tool. It is deliberately a *decision-support* instrument, not a ri
 3. **The boundary is drawn only where the curve was calibrated.** Outside the fitted pressure envelope the map is hatched and labelled. No pixel implies a measurement NASA did not make.
 4. **No language model is called anywhere in this build.** Answers are composed deterministically and every citation ID is verified against the database in code; a fabricated ID would be caught and flagged, not displayed. The router returns its own decision (`intent`, matched keywords, confidence) with the answer.
 5. **Fire evidence is separated from context.** A record that carries no combustion verdict (the Exploration Atmosphere specification, the Apollo 1 historical reference) can never be presented as "supporting evidence" — the regression that produced that overclaim is written up in the dossier (§6.1) and asserted by a test.
-6. **Our failures are published.** The backtest table shows 7/12 overall (58.3%) and 77.8% on non-anchor records, with per-miss explanations, rather than a headline accuracy figure with a hidden denominator.
+6. **Our failures are published.** The backtest table shows 14/18 overall (77.8%) and 93.3% on non-anchor records, with per-miss explanations, rather than a headline accuracy figure with a hidden denominator.
+7. **The design question is answered, not just plotted.** Design Search turns the two constraints into one crossing pressure: below it, the oxygen a crew needs is itself above the boundary, so no breathable mix is fire-safe. The result is uncomfortable for the Exploration Atmosphere — at 8.2 psia the crew floor sits 10.3 O₂ points above the boundary, and the widest fire-safe breathable window inside the calibrated data is 0.92 point, inside the fit's stated ±1.5 pt uncertainty. The product reports that instead of implying a safe atmosphere exists.
 
 ### 3.1 The screen that answers the challenge in one look
 
@@ -53,7 +56,7 @@ Each of those figures sits next to the citation list the API returned with it, a
 
 ```bash
 py -m pip install -r backend/requirements.txt
-py -m pytest backend/tests -q                     # 95 tests, all green
+py -m pytest backend/tests -q                     # 128 tests, all green
 py -m backend.tools.reproduce_dossier_log         # exits non-zero if the published log drifts from the code
 py -m uvicorn backend.app.main:app --port 8787    # API
 
@@ -71,6 +74,7 @@ Useful URLs while the API is up:
 | `/api/flame` | flame regime, fire-front fate, relative front rate, µg-vs-1g crossover, and the citations for every visual claim |
 | `/api/experiments` | the ranked record set with each row's kind |
 | `/api/ask` (POST) | routed, engine-grounded answer with verified citations |
+| `/api/design-search` | per-pressure crew floor vs boundary, closed-form crossing and the breathable fire-safe window |
 | `/api/pareto` | candidate set, frontier and weighted ranking |
 | `/api/validate` | the leave-one-out backtest |
 | `/api/report` | the Markdown decision memo (`&download=true` attaches it) |

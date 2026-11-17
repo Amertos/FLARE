@@ -48,9 +48,9 @@ export default function HazardTerrain({
     controls: OrbitControls;
     scene: THREE.Scene;
     marker: THREE.Group;
+    surface: THREE.Mesh;
     raycaster: THREE.Raycaster;
     pointer: THREE.Vector2;
-    hoverPlane: THREE.Mesh;
     grid: number[][];
     ps: number[];
     o2s: number[];
@@ -62,8 +62,15 @@ export default function HazardTerrain({
 
   const [autoRotate, setAutoRotate] = useState(true);
   const [showGhost, setShowGhost] = useState(ghost ?? false);
+  // Latest toggle value, readable inside the scene-build effect without making
+  // it a dependency (adding it there would rebuild the whole WebGL scene on
+  // every toggle instead of just flipping one mesh's visibility).
+  const showGhostRef = useRef(showGhost);
   const [fps, setFps] = useState<number | null>(null);
   const [hover, setHover] = useState<{ p: number; o: number; v: number } | null>(null);
+  // Read by the render loop without making the loop depend on a state value:
+  // a stale closure here used to call setHover on every rAF tick.
+  const hoverRef = useRef<{ p: number; o: number; v: number } | null>(null);
   // Probe WebGL once, during the first render, instead of reporting a failure
   // from inside the effect: the screen can then decide to show its fallback
   // text without a second render pass.
@@ -213,9 +220,9 @@ export default function HazardTerrain({
     if (hctx) {
       hctx.fillStyle = "#020617";
       hctx.fillRect(0, 0, 64, 64);
-      hctx.strokeStyle = "rgba(245,158,11,0.65)";
-      hctx.lineWidth = 5;
-      for (let d = -64; d < 128; d += 18) {
+      hctx.strokeStyle = "rgba(245,158,11,0.55)";
+      hctx.lineWidth = 3;
+      for (let d = -64; d < 128; d += 16) {
         hctx.beginPath();
         hctx.moveTo(d, 0);
         hctx.lineTo(d + 64, 64);
@@ -225,11 +232,13 @@ export default function HazardTerrain({
     const hatchTex = new THREE.CanvasTexture(hatchCanvas);
     hatchTex.wrapS = THREE.RepeatWrapping;
     hatchTex.wrapT = THREE.RepeatWrapping;
-    hatchTex.repeat.set(8, 3);
+    hatchTex.repeat.set(12, 4);
     const cliffMat = new THREE.MeshBasicMaterial({
       map: hatchTex,
       transparent: true,
-      opacity: 0.92,
+      // The cliff marks where evidence ends; it must not out-shout the data
+      // inside the envelope (drawn as curtains at 0.92 in the first pass).
+      opacity: 0.45,
       side: THREE.DoubleSide,
     });
     const edgeX = [x(envelope[0]), x(envelope[1])].filter((v) => v > -1.0001 && v < 1.0001);
@@ -273,15 +282,10 @@ export default function HazardTerrain({
     marker.add(ball, ring, stem);
     scene.add(marker);
 
-    // ---- hover probe: an invisible plane matched to the XY half-space of
-    // the panel (used only for pointer raycast) and a visible highlight ring.
-    const hoverPlane = new THREE.Mesh(
-      new THREE.PlaneGeometry(2, 2),
-      new THREE.MeshBasicMaterial({ visible: false }),
-    );
-    hoverPlane.rotation.x = -Math.PI / 2;
-    hoverPlane.position.y = yOf(40);
-    scene.add(hoverPlane);
+    // ---- hover highlight: the pointer is raycast against the SURFACE itself,
+    // not a flat plane, so the reported (P, O2) is the cell actually under the
+    // cursor rather than the cell under a same-screen-position point on a
+    // horizontal plane at a fixed height.
     const hoverRing = new THREE.Mesh(
       new THREE.RingGeometry(0.03, 0.05, 24),
       new THREE.MeshBasicMaterial({ color: 0x60a5fa, side: THREE.DoubleSide, transparent: true, opacity: 0 }),
@@ -292,8 +296,10 @@ export default function HazardTerrain({
     // ---- ghost surface: the same field at 1g, loaded lazily. Enabled by the
     // screen's toggle; a sibling mesh, transparent blue, so the two gravity
     // regimes can be compared in one orbit.
+    // Built whenever the engine supplies the field, then toggled by visibility:
+    // rebuilding the scene on toggle (the old behaviour) also reset the camera.
     let ghostMesh: THREE.Mesh | null = null;
-    if (showGhost && trade.ghost_grid_1g != null) {
+    if (trade.ghost_grid_1g != null) {
       // The 1g ghost is drawn BELOW the µg surface (height_offset_pct is the
       // engine-declared vertical offset in ignition points): two translucent
       // sheets, with the LOC separation visible as the gap between them.
@@ -330,6 +336,7 @@ export default function HazardTerrain({
           side: THREE.DoubleSide, depthWrite: false,
         }),
       );
+      ghostMesh.visible = showGhostRef.current;
       scene.add(ghostMesh);
     }
 
@@ -337,7 +344,7 @@ export default function HazardTerrain({
     const pointer = new THREE.Vector2();
 
     sceneRef.current = {
-      renderer, camera, controls, scene, marker, raycaster, pointer, hoverPlane,
+      renderer, camera, controls, scene, marker, surface, raycaster, pointer,
       grid, ps, o2s, axes: { x, z }, frame: 0, ghostMesh, stars,
     };
 
@@ -359,10 +366,9 @@ export default function HazardTerrain({
         windowStart = now;
       }
       if (s.stars) s.stars.rotation.y += dt * 0.00001;
-      // hover raycast against the invisible plane, report (P, O2, ignition)
-      const r = s.hoverPlane as THREE.Mesh;
+      // hover raycast against the terrain surface; report (P, O2, ignition)
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObject(r, false)[0];
+      const hit = raycaster.intersectObject(s.surface, false)[0];
       if (hit && hit.point) {
         const p = Math.round(((hit.point.x / 2) + 0.5) * (ps[ps.length - 1] - ps[0]) + ps[0]);
         const o = Math.round(((hit.point.z / 2) + 0.5) * (o2s[o2s.length - 1] - o2s[0]) + o2s[0]);
@@ -373,12 +379,19 @@ export default function HazardTerrain({
           hoverRing.position.copy(hit.point);
           hoverRing.position.y = yOf(v) + 0.01;
           (hoverRing.material as THREE.MeshBasicMaterial).opacity = 0.7;
-          if (v !== hover?.v || p !== hover?.p || o !== hover?.o) {
-            setHover({ p, o, v });
+          const prev = hoverRef.current;
+          if (!prev || v !== prev.v || p !== prev.p || o !== prev.o) {
+            const next = { p, o, v };
+            hoverRef.current = next;
+            setHover(next);
           }
         }
       } else {
         (hoverRing.material as THREE.MeshBasicMaterial).opacity = 0;
+        if (hoverRef.current) {
+          hoverRef.current = null;
+          setHover(null);
+        }
       }
       s.controls.update();
       s.renderer.render(s.scene, s.camera);
@@ -428,7 +441,13 @@ export default function HazardTerrain({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       sceneRef.current = null;
     };
-  }, [trade, webglError, showGhost]);
+  }, [trade, webglError]);
+
+  useEffect(() => {
+    const s = sceneRef.current;
+    showGhostRef.current = showGhost;
+    if (s?.ghostMesh) s.ghostMesh.visible = showGhost;
+  }, [showGhost]);
 
   // ------------------------------------------------------------ marker sync
   useEffect(() => {

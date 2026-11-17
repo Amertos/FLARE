@@ -71,9 +71,9 @@ LIMITATIONS: list[dict[str, str]] = [
         "id": "L7",
         "title": "Seed database is a subset",
         "detail": (
-            "The shipped curated database holds 20 NTRS-referenced records out of a "
+            "The shipped curated database holds 26 NTRS-referenced records out of a "
             "target 60-120. Every label, coverage value and backtest figure in the "
-            "product is computed from those 20 records and will change when the "
+            "product is computed from those 26 records and will change when the "
             "database grows."
         ),
     },
@@ -152,10 +152,10 @@ GOVERNANCE: list[str] = [
 DATA_PROVENANCE: list[dict[str, str]] = [
     {"claim": "Exploration Atmosphere = 8.2 psia / 34% O2",
      "source": "NTRS 20260002050 (ICES-2026-324); Kluis & Loeppky 2021, PMC8594431"},
-    {"claim": "Microgravity sustains spread near 17% O2 at ~60 kPa",
+    {"claim": "Microgravity sustains spread at 17% O2 near ambient with low opposed flow (1g needs 18%)",
      "source": "Link et al. 2018, PMC5760683"},
-    {"claim": "Spread observed at 19.8% O2, 60 kPa, PMMA, microgravity",
-     "source": "UC Berkeley / SoFIE reporting, Dec 2024"},
+    {"claim": "1g concurrent spread over thick PMMA survives at 40 and 60 kPa (reduced pressure as a µg analog)",
+     "source": "Thomsen et al. 2019, NTRS 20200000557"},
     {"claim": "LOC decreases as total pressure increases",
      "source": "NASA-STD-6001 lineage; Konno 2023; He 2021"},
     {"claim": "Lunar/Mars minimum O2 for spread is near the microgravity value",

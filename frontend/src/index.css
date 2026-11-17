@@ -98,7 +98,7 @@ body {
 }
 
 /* Screen intro type: the one paragraph that sets up what a screen answers.
-   Consistent voice across all six screens. */
+   Consistent voice across all eight screens. */
 .screen-lede {
   color: #94a3b8;
   font-size: 0.857rem;  /* 12px — reads as support, not body copy */
@@ -144,12 +144,12 @@ body {
 }
 
 /* Number-first typography for tables: columns line up because every numeric
-   cell is tabular by default in mono contexts across the six screens. */
+   cell is tabular by default in mono contexts across the eight screens. */
 .num {
   font-variant-numeric: tabular-nums;
 }
 
-/* The screen fade-in: a house style entrance that ties the six screens
+/* The screen fade-in: a house style entrance that ties the eight screens
    together. Motion respects the OS preference. */
 @media (prefers-reduced-motion: no-preference) {
   .screen-enter {

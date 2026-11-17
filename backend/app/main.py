@@ -9,6 +9,8 @@ Endpoints:
   POST /api/ask             engine-grounded answer with server-verified citations
                             (deterministic question router; no language model is called)
   GET  /api/pareto          candidate set + Pareto frontier + weighted ranking
+  GET  /api/design-search   inverse design: crew O2 floor vs LOC boundary per
+                            pressure, crossing pressure solved in closed form
   POST /api/counterfactual  before/after deltas for dO2 / dflow
   GET  /api/validate        leave-out backtest of the engine against the DB
   GET  /api/report          one-page Markdown decision memo for one atmosphere
@@ -17,9 +19,10 @@ Endpoints:
 """
 from __future__ import annotations
 
+import os
 from typing import Any, Literal
 
-from fastapi import FastAPI, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -35,19 +38,33 @@ from backend.app.methodology import methodology_payload
 from backend.app.report import build_report
 from backend.engine.backtest import leave_one_out
 from backend.engine.citations import verify_citations
+from backend.engine.countermoves import countermoves_payload
+from backend.engine.design import design_search_payload
 from backend.engine.epistemics import classify, coverage
 from backend.engine.flame import flame_payload
 from backend.engine.hazard import MATERIAL_CLASSES
 from backend.engine.intents import Atmosphere, compose as compose_answer
 from backend.engine.missions import missions_payload, scenario_payload
-from backend.engine.loc import P_ENVELOPE_KPA, epistemic_flag_for_pressure
+from backend.engine.loc import (
+    P_ENVELOPE_KPA,
+    epistemic_flag_for_pressure,
+    inside_envelope,
+)
 from backend.engine.records import annotate as annotate_records
 from backend.engine.records import partition
 
 app = FastAPI(title="FLARE API", version="1.0.0")
+# Extra origins may be appended via the FLARE_CORS_ORIGINS env var
+# (comma-separated). The default stays the localhost dev pair; the deployed
+# product talks to the API same-origin through api/index.py and needs no CORS.
+_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    *(o.strip() for o in os.environ.get("FLARE_CORS_ORIGINS", "").split(",") if o.strip()),
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_origins,
     allow_methods=["GET", "POST"],
     # The client only ever sends JSON, so the preflight allow-list is narrowed
     # to the one header it needs rather than "*" (security pass, finding H1).
@@ -178,8 +195,7 @@ def tradespace(
     boundary = []
     for p in ps:
         p_kpa = _kpa(p)
-        lo, hi = P_ENVELOPE_KPA
-        inside = lo <= p_kpa <= hi
+        inside = inside_envelope(p_kpa)
         boundary.append({
             "p_psia": round(p, 3),
             "loc_pct": round(loc_percent(p_kpa), 2) if inside else None,
@@ -239,6 +255,62 @@ def flame(
     """
     return flame_payload(pressure_psia, o2_pct, gravity, flow_ms, temperature_c,
                          material_class)
+
+
+@app.get("/api/countermoves")
+def countermoves(
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    o2_pct: float = Query(34.0, ge=0.0, le=100.0),
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
+) -> dict[str, Any]:
+    """Ranked, engine-computed fire-safety levers for one atmosphere state.
+
+    The challenge's second question is "how do we reduce the fire risk". This
+    endpoint answers it from the SAME engine the trade-space map uses: every
+    lever reports a before/after hazard vector and names the dossier-backed
+    quantity that produced its effect, so the panel cannot claim more than
+    the model does. A lever the model does not support in this regime is
+    returned not-applicable with the reason, never as a 0-delta.
+    """
+    return countermoves_payload(pressure_psia, o2_pct, gravity, flow_ms,
+                                temperature_c, material_class)
+
+
+
+
+
+
+@app.get("/api/design-search")
+def design_search(
+    gravity: Gravity = "microgravity",
+    flow_ms: float = Query(0.2, ge=0.0, le=5.0),
+    temperature_c: float = Query(22.0, ge=-20.0, le=60.0),
+    material_class: MaterialClass = "polymer",
+    pressure_psia: float = Query(8.2, ge=1.0, le=30.0),
+    p_min: float = Query(4.0, ge=1.0, le=30.0),
+    p_max: float = Query(16.7, ge=1.0, le=30.0),
+    steps: int = Query(25, ge=2, le=200),
+) -> dict[str, Any]:
+    """Inverse design: for each cabin pressure, can the crew's O2 floor stay
+    below the LOC boundary?
+
+    The trade-space map answers "given this atmosphere, what happens". This
+    answers the question a designer starts from: is there ANY atmosphere that
+    is both breathable and below the boundary, and if so at what pressure does
+    that window open? The crossing is solved in closed form (engine/design.py),
+    the rows are the same loc.py/hazard.py functions every other screen uses,
+    and the window carries the epistemic flag of the pressure envelope it sits
+    in. No recommendation is made: the payload states which mixes satisfy two
+    stated constraints, nothing more.
+    """
+    if p_max <= p_min:
+        raise HTTPException(status_code=422, detail="p_max must exceed p_min")
+    return design_search_payload(gravity, flow_ms, temperature_c,
+                                 material_class, p_min, p_max, steps,
+                                 pressure_psia)
 
 
 @app.get("/api/experiments")

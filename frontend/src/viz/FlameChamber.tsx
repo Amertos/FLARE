@@ -386,7 +386,12 @@ export default function FlameChamber({
       const size = (alive ? (marginal ? 0.55 : 0.95) : 0) * st2.fade * wobble;
       // flow lean: the flame bends downstream with the imposed flow (FL2)
       const lean = alive && !buoyant ? Math.min(0.22, scale * 0.3) : 0;
-      flameMesh.scale.set(Math.max(0.001, size * (1 + lean * 0.3)), Math.max(0.001, size), Math.max(0.001, size));
+      // The core geometry is built at unit radius (so the teardrop reshape is
+      // resolution-independent); scale it by the declared physical radius.
+      // Without this the core came out 4x its own halo and poked through the
+      // chamber wall.
+      const core = Math.max(0.001, size * radius);
+      flameMesh.scale.set(core * (1 + lean * 0.3), core, core);
       halo.scale.setScalar(Math.max(0.001, size));
       flameMesh.position.x = -0.15 + lean * st2.fade;
       (flameMesh.material as THREE.MeshBasicMaterial).opacity = 0.95 * st2.fade;
@@ -430,7 +435,10 @@ export default function FlameChamber({
         ep.setXYZ(i, e.x, e.y, e.z);
         const l = Math.min(1, e.life);
         ec.setXYZ(i, l * 1.0, l * 0.55, l * 0.25);
-        es.setX(i, 0.06 * l + 0.01);
+        // Point size in the sprite shader is size * (140 / distance): at 0.01-
+        // 0.07 the embers were sub-pixel and the HUD's "embers recycled" line
+        // was visually a lie. 0.10-0.16 lands at 4-7 px at the camera distance.
+        es.setX(i, 0.13 * l + 0.03);
       }
       ep.needsUpdate = true;
       ec.needsUpdate = true;

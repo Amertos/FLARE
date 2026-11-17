@@ -34,6 +34,7 @@ from .hazard import (
     po2_psia,
     thickness_factor_for,
 )
+from .design import NOMINAL_WINDOW_PT, design_search_payload
 from .loc import (
     P_ENVELOPE_KPA,
     TEMP_REFERENCE_C,
@@ -73,6 +74,17 @@ class Atmosphere:
 # "block" and "vs" never fires inside "advised". Weights make an explicit
 # phrase ("limiting oxygen concentration") outrank an incidental word.
 _KEYWORDS: Final[dict[str, dict[str, float]]] = {
+    # Inverse-design questions. These phrases are specific enough that nobody
+    # types them by accident while asking about the atmosphere on the sliders,
+    # so the weights are high: "is there ANY atmosphere that is both breathable
+    # and fire-safe" must not be answered with this state's boundary line.
+    "design_window": {
+        "design search": 6.0, "any atmosphere": 5.0, "no atmosphere": 4.5,
+        "both breathable": 5.0, "breathable and": 4.0, "safe atmosphere": 4.5,
+        "fire-safe": 3.5, "inverse": 4.5, "crossover": 4.5,
+        "pressure window": 5.0, "window exists": 5.0, "window": 2.5,
+        "which pressures": 3.0, "what pressures": 3.0, "crew floor": 4.0,
+    },
     "loc_boundary": {
         "limiting oxygen concentration": 4.0, "loc": 3.0, "boundary": 2.5,
         "flammability limit": 3.0, "flammable": 2.0, "threshold": 2.0,
@@ -485,6 +497,45 @@ def _answer_pressure(atm: Atmosphere, _exps: list[dict], _ranked: list[dict]) ->
     return lines
 
 
+def _answer_design(atm: Atmosphere, _exps: list[dict], _ranked: list[dict]) -> list[str]:
+    """Answer the inverse question from the same engine the Design Search screen uses."""
+    payload = design_search_payload(
+        atm.gravity, atm.flow_ms, atm.temperature_c, atm.material_class,
+        pressure_psia=atm.pressure_psia,
+    )
+    cur = payload["current"]
+    lines = [payload["statement"]]
+    if cur["shortfall_pt"] > 0.0:
+        lines.append(
+            f"At this state ({atm.pressure_psia:g} psia / {atm.o2_pct:g}% O2) the crew floor is "
+            f"{cur['crew_floor_o2_pct']:.2f}% O2 and the effective boundary is "
+            f"{cur['loc_pct']:.2f}%: the floor sits {cur['shortfall_pt']:.2f} pt ABOVE the "
+            "boundary, so no crew-safe mix at this pressure is also below it."
+        )
+    else:
+        lines.append(
+            f"At this state ({atm.pressure_psia:g} psia / {atm.o2_pct:g}% O2) a breathable band "
+            f"under the boundary is open, {cur['window_pt']:.2f} pt wide (status "
+            f"{cur['status'].replace('_', ' ')})."
+        )
+    crossing = payload["crossover_psia"]
+    if crossing is not None:
+        lines.append(
+            f"The crossing is solved in closed form, not scanned: both constraints are a + b/P, "
+            f"so they meet once, at {crossing:.2f} psia. Below it no breathable mix can be under "
+            f"the boundary; above it one exists, and its width is judged against the "
+            f"{NOMINAL_WINDOW_PT:g} pt nominal threshold — a model result, not a flyable "
+            "design point."
+        )
+    lines.append(
+        "Nothing here is a new physical claim: the crew floor is 100 x pO2_min / P and the "
+        "boundary is loc.py, rearranged. It answers which O2 fractions satisfy two stated "
+        "constraints at a given pressure; it does not recommend an atmosphere to fly from "
+        "(limitations L2, L3)."
+    )
+    return lines
+
+
 def _answer_validation(_atm: Atmosphere, exps: list[dict], _ranked: list[dict]) -> list[str]:
     v = leave_one_out(exps)
     misses = [r for r in v["results"] if not r["correct"]]
@@ -584,6 +635,7 @@ _COMPOSERS = {
     "flow_effect": _answer_flow,
     "temperature_effect": _answer_temperature,
     "pressure_effect": _answer_pressure,
+    "design_window": _answer_design,
     "validation": _answer_validation,
     "what_if": _answer_what_if,
     "general": _answer_general,
@@ -638,6 +690,10 @@ SUGGESTED_QUESTIONS: Final[dict[str, list[str]]] = {
     "what_if": [
         "What if O2 increases by 2%?",
         "What if airflow drops to 0.05 m/s?",
+    ],
+    "design_window": [
+        "Is there any atmosphere that is both breathable and fire-safe?",
+        "Where is the crossover between the crew floor and the boundary?",
     ],
     "general": [
         "Why is 34% O2 riskier than 28% at the same pressure?",

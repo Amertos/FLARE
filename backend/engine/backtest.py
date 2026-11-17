@@ -51,12 +51,6 @@ def leave_one_out(experiments: list[dict]) -> dict:
                     f"Near-boundary case (margin {round(margin, 2)} pt): within the "
                     "model's stated uncertainty band for a 2-parameter fit."
                 )
-            elif e["experiment_id"] == "SAFFIRE-II-05":
-                explanation = (
-                    "Sample-card record: thin samples in the 9-sample card "
-                    "extinguish for geometry reasons the class-level model "
-                    "does not resolve (known limitation #1)."
-                )
             else:
                 explanation = "Outside the model's calibrated regime; documented as a known miss."
         results.append({

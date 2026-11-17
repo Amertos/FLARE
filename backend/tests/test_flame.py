@@ -136,9 +136,10 @@ def test_crossover_series_sustains_spread_below_the_1g_limit():
     # At 60 kPa the microgravity boundary is the lower one, so there is a band of
     # O2 where microgravity sustains spread and 1g does not. The band is asserted
     # from the engine's own numbers, NOT from the published observation: the
-    # observed µg spread record at 60 kPa sits at 17.0%, below this engine's
-    # 18.42% boundary, and is published as a known miss in the backtest (dossier
-    # §6 Test 7). Claiming the model reproduces 17% here would be false.
+    # observed µg spread record at 101.3 kPa / low opposed flow sits at 17.0%,
+    # near this engine's 18.26% boundary at that state, and is published as a
+    # known miss in the backtest (dossier §6 Test 7). Claiming the model
+    # reproduces 17% here would be false.
     series = crossover_series(60.0 / 6.89476, 0.3, 22.0)
     ug = series["loc_pct"]["microgravity"]
     one_g = series["loc_pct"]["earth"]

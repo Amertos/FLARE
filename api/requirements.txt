@@ -1,0 +1,4 @@
+# Runtime deps of backend/app/main.py only — the test/dev extras
+# (uvicorn, httpx, pytest) live in backend/requirements.txt and are not
+# needed inside the serverless handler.
+fastapi==0.115.0

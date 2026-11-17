@@ -45,6 +45,9 @@ client = TestClient(app)
     ("How accurate is the model on held-out experiments?", "validation"),
     ("What happens if O2 increases by 2%?", "what_if"),
     ("Which hazard component is highest?", "hazard_components"),
+    ("Is there any atmosphere that is both breathable and fire-safe?", "design_window"),
+    ("Where is the crossover between the crew floor and the boundary?", "design_window"),
+    ("What pressure window exists?", "design_window"),
 ])
 def test_router_sends_questions_to_the_expected_intent(question, intent):
     assert route(question)[0] == intent
@@ -68,6 +71,25 @@ def test_answer_depends_on_the_question():
     assert crew["intent"] != flow["intent"]
     assert "pO2" in crew["answer"]
     assert "flow" in flow["answer"].lower()
+
+
+def test_inverse_question_is_answered_with_the_design_search_numbers():
+    # The Ask surface must give the same answer the Design Search screen shows,
+    # from the same engine function: one product, not two stories.
+    atm = Atmosphere(8.2, 34.0, "microgravity", 0.2, 22.0, "polymer")
+    result = compose("Is there any atmosphere that is both breathable and fire-safe?", atm,
+                     load_experiments())
+    assert result["intent"] == "design_window"
+    assert "13.7" in result["answer"]                      # crossover pressure
+    assert "10.34" in result["answer"]                     # floor above the boundary
+    assert "not a flyable design point" in result["answer"]  # no recommendation
+    assert "no crew-safe mix at this pressure" in result["answer"]
+
+    payload = compose("What pressure window exists?",
+                      Atmosphere(14.7, 21.0, "microgravity", 0.2, 22.0, "polymer"),
+                      load_experiments())
+    assert payload["intent"] == "design_window"
+    assert "a breathable band under the boundary is open" in payload["answer"]
 
 
 def test_out_of_scope_question_is_declared_not_answered():
@@ -157,8 +179,8 @@ def test_validate_endpoint_uses_the_engine_backtest():
 
 def test_validate_numbers_are_the_published_ones():
     body = client.get("/api/validate").json()
-    assert (body["correct"], body["total"]) == (7, 12)
-    assert body["accuracy_non_anchor"] == pytest.approx(0.778, abs=0.001)
+    assert (body["correct"], body["total"]) == (14, 18)
+    assert body["accuracy_non_anchor"] == pytest.approx(0.933, abs=0.001)
 
 
 # ---------- Decision memo ----------

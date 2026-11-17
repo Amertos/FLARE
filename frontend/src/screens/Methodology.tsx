@@ -45,7 +45,7 @@ export default function Methodology() {
   return (
     <div className="space-y-4 screen-enter">
       <ScreenHeader
-        eyebrow="Screen 6 · The ledger"
+        eyebrow="Screen 8 · The ledger"
         title="Methodology — what FLARE does not claim"
         lede="FLARE is a decision-support tool. It never states which atmosphere is best, never issues an operational command, and does not colour a single pixel where NASA has no measurement. Everything on this screen is served by the engine (/api/methodology) so the product and the written record cannot drift apart."
       />
